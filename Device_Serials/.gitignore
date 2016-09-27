@@ -1,0 +1,6 @@
+# Ignore everything
+*
+
+# BUT the DUMMY Serial file
+!.gitignore
+!DUMMY.py
