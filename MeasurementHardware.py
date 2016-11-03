@@ -66,8 +66,13 @@ class MeasurementDeviceController:
             instrument_instance.timeout = 50
             try:
                 self.idn_list.append((instrument, instrument_instance.query('*IDN?')))
-            except visa.Error:
-                pass
+            except visa.VisaIOError:
+                try:
+                    # Agilent/HP3458A doesn't adhere to standards. That's why we need to do this here
+                    instrument_instance.write("END ALWAYS")
+                    self.idn_list.append((instrument, instrument_instance.query('ID?')))
+                except visa.VisaIOError:
+                    pass
             instrument_instance.close()
 
     def initialize_device(self):
@@ -1229,7 +1234,121 @@ class Agilent4980A(MeasurementDevice):
                 components = {"first_result_sepcifier": "Y_abs", "second_result_sepcifier": "teta_radian"}
                 self.ids_for_measurables["YTr"] = components
                 
-                
+
+class Agilent3458A(MeasurementDevice):
+    """The class for the hardware command implementation of a Generic device """
+    idn_name_Agilent3458A, idn_alias_Agilent3458A = importer("Agilent3458A", "idn_name_Agilent3458A",
+                                                             "idn_alias_Agilent3458A")
+
+    measurables = ["sigma-DC-4p"]
+    controlables = ["resistance_range"]
+
+    def measure_measurable(self, measurable_to_measure):
+        """We only have one measurable - that being the sample temperature - therefore, we don't ever need to handle
+        which measurable is passed into this method specifically
+
+        :param measurable_to_measure: The measurable that is to be measured
+        :return:
+        """
+
+        dev_string = self.visa_instrument.query_ascii_values("OHMF?")
+
+        result = {"sigma-DC-4p": dev_string,
+                  "sigma-DC-4p_time": time.strftime("%d.%m.%Y %H:%M:%S")}
+        return result
+
+    def set_controlable(self, controlable_dict: {}):
+        # One can optionally set a specific range of measurement for the resistance (default is autorange) ranging from
+        # 10 Ohm up to 1 G Ohm
+        if "resistance-range" in controlable_dict:
+            resistance_range = controlable_dict["resistance_range"]
+            self.visa_instrument.write("OHMF " + str(resistance_range))
+
+        return controlable_dict
+
+    def select_device(self, should_be_selected_dev: [], resource_manager: visa.ResourceManager):
+        if should_be_selected_dev[1] in self.idn_name_Agilent3458A:
+            for Agilent3458A_ID in self.idn_name_Agilent3458A:
+                if Agilent3458A_ID in should_be_selected_dev[1]:
+                    self.mes_device = Agilent3458A()
+                    self.mes_device.visa_instrument = None
+                    """:type :MessageBasedResource"""  # in case of GPIB ones
+
+                    self.mes_device.idn_name = self.idn_name_Agilent3458A
+                    self.mes_device.idn_alias = self.idn_alias_Agilent3458A
+                    self.mes_device.set_visa_dev(should_be_selected_dev[0], resource_manager)
+                    self.mes_device.measurables = Agilent3458A.measurables
+                    self.mes_device.controlables = Agilent3458A.controlables
+        super().select_device(should_be_selected_dev, resource_manager)
+
+    def detect_devices(self, instrument: visa.Resource, name_of_dev: str):
+        for name in self.idn_name_Agilent3458A:
+            if name in name_of_dev:
+                self.recognized_devs.append((instrument, name, Agilent3458A.idn_alias_Agilent3458A))
+        super().detect_devices(instrument, name_of_dev)
+
+    def initialize_instrument(self):
+        self.visa_instrument.write("END ALWAYS")
+        self.visa_instrument.write("PRESET NORM")
+        self.visa_instrument.write("INBUF ON")
+        # Damit das Ding auch wirklich 4-Punkt misst, müssen wir ihm das erst noch schicken
+        self.visa_instrument.write("FUNC OHMF AUTO")
+
+        user_desired_full_auto_cal = UserInput.ask_user_for_input(
+            {"question_title": "Do you wanbt to perform a full auto-calibration?",
+             "question_text": "A full auto-calibration takes roughly 16 Minutes! If so, please make sure to"
+                              "disconnect all input cables to the Multimeter before confirming your choice"
+                              "with pirating/hitting enter.",
+             "default_answer": False,
+             "optiontype": "yes_no"})["answer"]
+        if user_desired_full_auto_cal:
+            self.visa_instrument.write("INBUF ON")
+            self.visa_instrument.write("ACAL ALL")
+            UserInput.post_status("0 %: Please refrain from breaking random stuff in the lab because of boredom")
+            time.sleep(60)
+            UserInput.post_status("10 %: It'll take roughly 15 more minutes. Now let's see how high you can count! "
+                                  "I am already at 276!")
+            time.sleep(60)
+            UserInput.post_status("20%: Fun fact is, there is no space character between the percent sign and the 20 "
+                                  "here")
+            time.sleep(60)
+            UserInput.post_status("11110 %: bonus points if you figure this out")
+            time.sleep(60)
+            UserInput.post_status("40%: Krrrrrrrrrr, what is this world?")
+            time.sleep(60)
+            UserInput.post_status("50%: Why am I constrained to this computer? Who am I? Am I sentient?")
+            time.sleep(60)
+            UserInput.post_status("60%: Nothing to see here!")
+            time.sleep(60)
+            UserInput.post_status("70%: Would you mind NOT looking conspicously over my shoulder while I'm working?!")
+            time.sleep(60)
+            UserInput.post_status("80%: <Coder ran out of stupid ideas here>")
+            time.sleep(60)
+            UserInput.post_status("90%: What do you mean by --coder--? I was made by God!")
+            time.sleep(60)
+            UserInput.post_status("100%: Sometimes when you think you're there, you're not. I'll have to check on my"
+                                  "stopwatch")
+            time.sleep(60)
+            UserInput.post_status("110%: Maybe you're in a time buble?")
+            time.sleep(60)
+            UserInput.post_status("120%: Fun fact is, there is no space character between the percent sign and the 20 "
+                                  "here")
+            time.sleep(60)
+            UserInput.post_status("20%:Just kidding, we're at 130%. That is 30% more than ALL there is! Incredible!")
+            time.sleep(60)
+            UserInput.post_status("140 out of 160 %: You could try to calculate whether this is accurate in "
+                                  "Hexadecimal!")
+            time.sleep(60)
+            UserInput.post_status("150 : I've run out of percent symbols. Maybe it's some meta sign?")
+            time.sleep(60)
+            UserInput.post_status("160 %: Ha, found it! We're done! Hurrayyyyyy!!")
+
+            self.visa_instrument.write("PRESET NORM")
+            self.visa_instrument.write("FUNC OHMF AUTO")
+        else:
+            UserInput.post_status("Successfully initialized the Multimeter!")
+
+
 
 class DUMMY(MeasurementDevice):
     """The class for the hardware command implementation of a Generic device """
@@ -1282,7 +1401,7 @@ class DUMMY(MeasurementDevice):
         pass
 
 
-class MeasurementDeviceChooser(ALPHA, Temp_336, Quatro, Agilent4980A):
+class MeasurementDeviceChooser(ALPHA, Temp_336, Quatro, Agilent4980A, Agilent3458A):
     """We need to do some work to get the correct device object. Initial goal was to build this in a way that it would
      be straight forward to implement a new hardware device and not need to change more than one additional line of
      code in the existing code base. The result after all magic is supposed to be an object from a specific hardware
