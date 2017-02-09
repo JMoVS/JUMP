@@ -6,11 +6,34 @@ __author__ = "Justin Scholz"
 
 import time, datetime
 from abc import ABCMeta, abstractmethod, abstractproperty
+from importlib import import_module
 
 import UserInput
 import visa
 from pyvisa.resources.gpib import GPIBInstrument  # We want to set our dev individually so code completion works
 from pyvisa.resources.messagebased import MessageBasedResource
+
+
+def importer(device_class, idn_name_to_import, idn_alias_to_import):
+    """
+    Imports device serials and names gracefully so you don't have to have serial files for devices you don't own. It
+    receives the expected
+    :param device_class: the name of the serial file as string
+    :param idn_name_to_import: the name of the device-name in the serial file as string
+    :param idn_alias_to_import: the name of the device-alias in the serial file as string
+    :return: idn_alias_to_import, idn_alias_to_import
+    """
+    try:
+        import_name = "Device_Serials." + device_class
+        dev_information = import_module(import_name)
+        idn_name_to_import = getattr(dev_information, idn_name_to_import)
+        idn_alias_to_import = getattr(dev_information, idn_alias_to_import)
+
+    except ImportError:
+        idn_name_to_import = ["Device Serial file not present"]
+        idn_alias_to_import = "Device Serial file not present"
+
+    return idn_name_to_import, idn_alias_to_import
 
 
 class MeasurementDeviceController:
@@ -196,7 +219,7 @@ class MeasurementDevice(metaclass=ABCMeta):
 
 class ALPHA(MeasurementDevice):
     """The class for the hardware command implementation of the Alpha Analyzer """
-    from Device_Serials.ALPHA import idn_name_Alpha, idn_alias_alpha
+    idn_name_Alpha, idn_alias_Alpha = importer("ALPHA", "idn_name_Alpha", "idn_alias_Alpha")
 
     measurables = ["RX"]
     controlables = ["expected_freq"]
@@ -209,7 +232,7 @@ class ALPHA(MeasurementDevice):
                 """:type :MessageBasedResource"""
 
                 self.mes_device.idn_name = Alpha_ID
-                self.mes_device.idn_alias = self.idn_alias_alpha
+                self.mes_device.idn_alias = self.idn_alias_Alpha
                 self.mes_device.set_visa_dev(should_be_selected_dev[0], resource_manager)
                 self.mes_device.controlables = ALPHA.controlables
                 self.mes_device.measurables = ALPHA.measurables
@@ -218,7 +241,7 @@ class ALPHA(MeasurementDevice):
     def detect_devices(self, instrument: visa.Resource, name_of_dev: str):
         for name in self.idn_name_Alpha:
             if name in name_of_dev:
-                self.recognized_devs.append((instrument, name, self.idn_alias_alpha))
+                self.recognized_devs.append((instrument, name, self.idn_alias_Alpha))
         super().detect_devices(instrument, name_of_dev)
 
     def initialize_instrument(self):
@@ -632,7 +655,7 @@ class ALPHA(MeasurementDevice):
         describing the error code according to the Manual
         """
         response = response[:-2]
-        message = response # if it is not overriden later, the message is supposed to be the result
+        message = response  # if it is not overriden later, the message is supposed to be the result
         if response == "OK":
             successful = True
         elif response == "CA":
@@ -733,7 +756,7 @@ class ALPHA(MeasurementDevice):
 
 
 class Temp_336(MeasurementDevice):
-    from Device_Serials.Temp_336 import idn_alias_336, idn_name_336
+    idn_name_336, idn_alias_336 = importer("Temp_336", "idn_name_336", "idn_alias_336")
 
     setpoint = 300
     pid = None
@@ -830,7 +853,7 @@ class Temp_336(MeasurementDevice):
 
 class Quatro(MeasurementDevice):
     """The class for the hardware command implementation of the Quatro hardware device"""
-    from Device_Serials.Quatro import idn_name_Quatro, idn_alias_Quatro
+    idn_name_Quatro, idn_alias_Quatro = importer("Quatro", "idn_name_Quatro", "idn_alias_Quatro")
 
     measurables = ["Sample temperature"]
     controlables = ["Setpoint", "PowerOffNow"]
@@ -917,7 +940,8 @@ class Quatro(MeasurementDevice):
 
 class Agilent4980A(MeasurementDevice):
     """The class for the hardware command implementation of a Generic device """
-    from Device_Serials.Agilent4980A import idn_name_Agilent4980A, idn_alias_Agilent4980A
+    idn_name_Agilent4980A, idn_alias_Agilent4980A = importer("Agilent4980A", "idn_name_Agilent4980A",
+                                                             "idn_alias_Agilent4980A")
 
     measurables = ["CpD", "CpQ", "CpG", "CpRp", "CsD", "CsQ", "CsRs", "LpQ", "LpD", "LpRp", "LsD", "LsQ", "LsRs",
                    "RX", "ZTd", "ZTr", "GB", "YTd", "YTr"]
@@ -1011,14 +1035,12 @@ class Agilent4980A(MeasurementDevice):
 
         return result
 
-
-
     def set_controlable(self, controlable_dict: {}):
         # must return a controlable dict with refreshed values of what was set
         if "expected_freq" in controlable_dict:
             expected_freq = controlable_dict["expected_freq"]
             self.visa_instrument.write("FREQ " + str(expected_freq))
-            actual_freq = self.visa_instrument.query("FREQ?")[:-1]   # there is always a \n, we need to right cut it off
+            actual_freq = self.visa_instrument.query("FREQ?")[:-1]  # there is always a \n, we need to right cut it off
 
             # in case of thid 4980A, the measurement data itself doesn't contain the frequency anymore in contrast to
             # the ALPHA analyzer. Therefore, we can directly name it freq without having it twice in the database and
@@ -1205,7 +1227,7 @@ class Agilent4980A(MeasurementDevice):
 
 class DUMMY(MeasurementDevice):
     """The class for the hardware command implementation of a Generic device """
-    from Device_Serials.DUMMY import idn_name_DUMMY, idn_alias_DUMMY
+    idn_name_DUMMY, idn_alias_DUMMY = importer("DUMMY", "idn_name_DUMMY", "idn_alias_DUMMY")
 
     measurables = ["Temp", "caffeine-concentration"]
     controlables = ["freq", "milk_concentration", "PID etc."]
