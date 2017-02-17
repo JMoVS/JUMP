@@ -1041,6 +1041,12 @@ class Agilent4980A(MeasurementDevice):
             expected_freq = controlable_dict["expected_freq"]
             self.visa_instrument.write("FREQ " + str(expected_freq))
             actual_freq = self.visa_instrument.query("FREQ?")[:-1]  # there is always a \n, we need to right cut it off
+            try:
+                actual_freq = float(actual_freq)
+            except ValueError:
+                # If the return value is not possibly converted to a float, it's best to change to 0 so it's clear that
+                # it's wrong, but also means that data processing doesn't choke on it.
+                actual_freq = 0.0
 
             # in case of thid 4980A, the measurement data itself doesn't contain the frequency anymore in contrast to
             # the ALPHA analyzer. Therefore, we can directly name it freq without having it twice in the database and
