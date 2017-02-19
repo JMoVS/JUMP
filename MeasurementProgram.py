@@ -1,6 +1,6 @@
 """This is the main component and main class which runs"""
 
-__copyright__ = "Copyright 2015 - 2016, Justin Scholz"
+__copyright__ = "Copyright 2015 - 2017, Justin Scholz"
 __author__ = "Justin Scholz"
 
 import sys, os

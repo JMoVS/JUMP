@@ -1,6 +1,6 @@
 """This module packages up the MeasurementController class to control the measuring hardware on an abstract level as
 well as the Measurement class which takes out and implements the actual measuring process"""
-__copyright__ = "Copyright 2015 - 2016, Justin Scholz"
+__copyright__ = "Copyright 2015 - 2017, Justin Scholz"
 __author__ = "Justin Scholz"
 
 import queue

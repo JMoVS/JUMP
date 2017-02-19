@@ -1,5 +1,5 @@
 __author__ = 'Justin Scholz'
-__copyright__ = "Copyright 2015 - 2016, Justin Scholz"
+__copyright__ = "Copyright 2015 - 2017, Justin Scholz"
 
 def recognize_user_input_yes_or_no(user_choice: str, default: bool):
     user_input_understood = False

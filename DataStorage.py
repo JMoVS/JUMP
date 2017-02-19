@@ -1,6 +1,6 @@
 """Provides a convenient way to store all data into first and foremost raw files and also into a datastore so the
 data can be analyzed and displayed on screen"""
-__copyright__ = "Copyright 2015 - 2016, Justin Scholz"
+__copyright__ = "Copyright 2015 - 2017, Justin Scholz"
 __author__ = "Justin Scholz"
 
 import cmath

@@ -1,5 +1,5 @@
 """Here we describe and implement the measurement setups, eg Coldhoead..."""
-__copyright__ = "Copyright 2015 - 2016, Justin Scholz"
+__copyright__ = "Copyright 2015 - 2017, Justin Scholz"
 __author__ = "Justin Scholz"
 
 from abc import ABCMeta, abstractmethod

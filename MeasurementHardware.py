@@ -1,7 +1,7 @@
 """This is a module to implement the hardware side of the commands to send through the GPIB interface to the Measuremnt
 hardware devices. It responds to predefined methods and returns correctly calculated values back to the
 MeasurementDeviceController"""
-__copyright__ = "Copyright 2015 - 2016, Justin Scholz"
+__copyright__ = "Copyright 2015 - 2017, Justin Scholz"
 __author__ = "Justin Scholz"
 
 import time, datetime
