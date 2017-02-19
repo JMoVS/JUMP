@@ -346,7 +346,7 @@ class Quatro(MeasurementSetup):
         self.Quatro_should_turn_off_after_measurement = UserInput.ask_user_for_input(question)
 
 
-class Generic(MeasurementSetup):
+class DUMMY(MeasurementSetup):
     def measurement_done(self):
         pass
 
@@ -368,7 +368,7 @@ class Generic(MeasurementSetup):
     def change_value_of_controlable_to(self, controlable, new_value):
         pass
 
-    name_Generic = "Generic"
+    name_DUMMY = "DUMMY"
     min_setpoint = 0
     max_setpoint = 475
 
@@ -389,16 +389,16 @@ class Generic(MeasurementSetup):
         pass
 
     def list_available_setups(self):
-        self.list_of_setups.append(self.name_Generic)
+        self.list_of_setups.append(self.name_DUMMY)
         super().list_available_setups()
 
     def select_setup(self, to_be_selected_setups_name: str):
-        if self.name_Generic == to_be_selected_setups_name:
-            self.setup = Generic()
+        if self.name_DUMMY == to_be_selected_setups_name:
+            self.setup = DUMMY()
         super().select_setup(to_be_selected_setups_name)
 
 
-class MeasurementSetupHelper(GLaDOS, Generic, Quatro):
+class MeasurementSetupHelper(GLaDOS, DUMMY, Quatro):
     def select_setup(self, to_be_selected_setups_name: str):
         """
 
