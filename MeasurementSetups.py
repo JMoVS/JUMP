@@ -347,6 +347,23 @@ class Quatro(MeasurementSetup):
 
 
 class DUMMY(MeasurementSetup):
+    name_DUMMY = "DUMMY"
+    min_setpoint = 0
+    max_setpoint = 475
+
+    PIDs = [{"startTemp": 0, "PID": {"P": 40, "I": 20, "D": 0}, "HR": 3, "HO": 1},
+            {"startTemp": 100, "PID": {"P": 50, "I": 20, "D": 0}, "HR": 3, "HO": 1},
+            {"startTemp": 150, "PID": {"P": 50, "I": 20, "D": 0}, "HR": 3, "HO": 1}]
+
+    old_controller_PIDS = [{"startTemp": 0, "PID": {"old_P": 50, "old_I": 20, "old_D": 0}, "old_HR": 3, "old_HO": 1},
+                           {"startTemp": 100, "PID": {"old_P": 50, "old_I": 20, "old_D": 0}, "old_HR": 3, "old_HO": 1},
+                           {"startTemp": 150, "PID": {"old_P": 50, "old_I": 20, "old_D": 0}, "old_HR": 3, "old_HO": 1}]
+
+    current_start_temp = 0
+
+    mdc_for_temp_controller = None
+    mdc_for_meas_device = None
+
     def measurement_done(self):
         pass
 
@@ -368,23 +385,6 @@ class DUMMY(MeasurementSetup):
     def change_value_of_controlable_to(self, controlable, new_value):
         pass
 
-    name_DUMMY = "DUMMY"
-    min_setpoint = 0
-    max_setpoint = 475
-
-    PIDs = [{"startTemp": 0, "PID": {"P": 40, "I": 20, "D": 0}, "HR": 3, "HO": 1},
-            {"startTemp": 100, "PID": {"P": 50, "I": 20, "D": 0}, "HR": 3, "HO": 1},
-            {"startTemp": 150, "PID": {"P": 50, "I": 20, "D": 0}, "HR": 3, "HO": 1}]
-
-    old_controller_PIDS = [{"startTemp": 0, "PID": {"old_P": 50, "old_I": 20, "old_D": 0}, "old_HR": 3, "old_HO": 1},
-                            {"startTemp": 100, "PID": {"old_P": 50, "old_I": 20, "old_D": 0}, "old_HR": 3, "old_HO": 1},
-                            {"startTemp": 150, "PID": {"old_P": 50, "old_I": 20, "old_D": 0}, "old_HR": 3, "old_HO": 1}]
-
-    current_start_temp = 0
-
-    mdc_for_temp_controller = None
-    mdc_for_meas_device = None
-
     def measure_measurable(self, measurable):
         pass
 
@@ -398,7 +398,137 @@ class DUMMY(MeasurementSetup):
         super().select_setup(to_be_selected_setups_name)
 
 
-class MeasurementSetupHelper(GLaDOS, DUMMY, Quatro):
+class Generic(MeasurementSetup):
+    name_Generic = "Generic"
+
+    mdc1 = None  # type: MeasurementDeviceController
+    mdc2 = None  # type: MeasurementDeviceController
+    mdc3 = None  # type: MeasurementDeviceController
+    mdc4 = None  # type: MeasurementDeviceController
+    mdc5 = None  # type: MeasurementDeviceController
+
+    def measurement_done(self):
+        pass
+
+    def get_limits(self):
+        return ["No known limits to this Generic measurement setup"]
+
+    def init_after_creation(self):
+        self._add_measurement_device_controllers()
+        self._generate_controlables_from_devices()
+        self._generate_measurables()
+
+    def get_controlables(self):
+        return self.controlables
+
+    def _add_measurement_device_controllers(self):
+        """ We need to create the measurement device controllers. And we do this by literally creating them, as the init
+        method of MeasurementDeviceController takes care of the actual "select device" and init stuff.
+
+        """
+        if not self.mdc1:
+            UserInput.confirm_warning("Please select the 1st device out of the list")
+            self.mdc1 = MeasurementDeviceController(self.dev_resource_manager)
+
+        # We now have the first (and possibly only) mdc. If the user wants a second, he can now create it...
+        user_wants_second_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                 "question_text": "Do you want to configure a 2nd"
+                                                                                  "device for use?",
+                                                                 "default_answer": True,
+                                                                 "optiontype": "yes_no"})["answer"]
+        if user_wants_second_device and not self.mdc2:
+            UserInput.confirm_warning("Please select the 2nd device out of the list")
+            self.mdc2 = MeasurementDeviceController(self.dev_resource_manager)
+
+        user_wants_third_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                 "question_text": "Do you want to configure a 3rd"
+                                                                                  "device for use?",
+                                                                 "default_answer": False,
+                                                                 "optiontype": "yes_no"})["answer"]
+        if user_wants_third_device and not self.mdc3:
+            UserInput.confirm_warning("Please select the 3rd device out of the list")
+            self.mdc3 = MeasurementDeviceController(self.dev_resource_manager)
+
+        user_wants_fourth_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                 "question_text": "Do you want to configure a 4th"
+                                                                                  "device for use?",
+                                                                 "default_answer": False,
+                                                                 "optiontype": "yes_no"})["answer"]
+        if user_wants_fourth_device and not self.mdc4:
+            UserInput.confirm_warning("Please select the 4th device out of the list")
+            self.mdc4 = MeasurementDeviceController(self.dev_resource_manager)
+
+        user_wants_third_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                 "question_text": "Do you want to configure a 5th"
+                                                                                  "device for use?",
+                                                                 "default_answer": False,
+                                                                 "optiontype": "yes_no"})["answer"]
+        if user_wants_third_device and not self.mdc5:
+            UserInput.confirm_warning("Please select the 5th device out of the list")
+            self.mdc5 = MeasurementDeviceController(self.dev_resource_manager)
+
+    def get_measurables(self):
+        return self.measurables
+
+    def change_value_of_controlable_to(self, controlable, new_value):
+        return controlable["dev"].set_controlable({controlable["name"]: new_value})
+
+    def measure_measurable(self, measurable):
+        return measurable["dev"].measure_measurable(measurable["name"])
+
+    def list_available_setups(self):
+        self.list_of_setups.append(self.name_Generic)
+        super().list_available_setups()
+
+    def select_setup(self, to_be_selected_setups_name: str):
+        if self.name_Generic == to_be_selected_setups_name:
+            self.setup = Generic()
+        super().select_setup(to_be_selected_setups_name)
+
+    def _generate_controlables_from_devices(self):
+        for dev_controlable in self.mdc1.controlables:
+            controlable = {"dev": self.mdc1, "name": dev_controlable}
+            self.controlables.append(controlable)
+        if self.mdc2:
+            for dev_controlable in self.mdc2.controlables:
+                controlable = {"dev": self.mdc2, "name": dev_controlable}
+                self.controlables.append(controlable)
+            if self.mdc3:
+                for dev_controlable in self.mdc3.controlables:
+                    controlable = {"dev": self.mdc3, "name": dev_controlable}
+                    self.controlables.append(controlable)
+                if self.mdc4:
+                    for dev_controlable in self.mdc4.controlables:
+                        controlable = {"dev": self.mdc4, "name": dev_controlable}
+                        self.controlables.append(controlable)
+                    if self.mdc5:
+                        for dev_controlable in self.mdc5.controlables:
+                            controlable = {"dev": self.mdc5, "name": dev_controlable}
+                            self.controlables.append(controlable)
+
+    def _generate_measurables(self):
+        for dev_measurable in self.mdc1.measurables:
+            measurable = {"dev": self.mdc1, "name": dev_measurable}
+            self.measurables.append(measurable)
+        if self.mdc2:
+            for dev_measurable in self.mdc2.measurables:
+                measurable = {"dev": self.mdc2, "name": dev_measurable}
+                self.measurables.append(measurable)
+            if self.mdc3:
+                for dev_measurable in self.mdc3.measurables:
+                    measurable = {"dev": self.mdc3, "name": dev_measurable}
+                    self.measurables.append(measurable)
+                if self.mdc4:
+                    for dev_measurable in self.mdc4.measurables:
+                        measurable = {"dev": self.mdc4, "name": dev_measurable}
+                        self.measurables.append(measurable)
+                    if self.mdc5:
+                        for dev_measurable in self.mdc5.measurables:
+                            measurable = {"dev": self.mdc5, "name": dev_measurable}
+                            self.measurables.append(measurable)
+
+
+class MeasurementSetupHelper(GLaDOS, Quatro, Generic, DUMMY):
     def select_setup(self, to_be_selected_setups_name: str):
         """
 
