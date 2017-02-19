@@ -10,6 +10,7 @@ import UserInput
 
 class MeasurementSetup(metaclass=ABCMeta):
     """The metaclass that hols all values and methods each individual measurement setup will adhere to"""
+
     # Same game as for MeasurementHardware. We want easy bolt-on of setups here, so we do the trickery with inheritance
     # for this, we have a setup thingy.
 
@@ -77,7 +78,6 @@ class MeasurementSetup(metaclass=ABCMeta):
 
 
 class GLaDOS(MeasurementSetup):
-
     name_coldheadnew = "TKKG : Transportlaborkaltkopf GLaDOS (GLaDOS)"
     min_setpoint = 0
     max_setpoint = 500
@@ -86,11 +86,13 @@ class GLaDOS(MeasurementSetup):
     PIDs = [{"startTemp": 0, "PID": {"P": 20, "I": 40, "D": 0}, "HR": 3, "HO": 1},
             {"startTemp": 200, "PID": {"P": 30, "I": 60, "D": 1}, "HR": 2, "HO": 1}]
 
-    # On rather old hardware, the PID values were different depending on the temperature controller, to accomodate this, one can provide old_PIDs
+    # On rather old hardware, the PID values were different depending on the temperature controller, to accomodate this,
+    # one can provide old_PIDs. The temperature controllers themselves know whether they need to respect old or new PIDs
 
-    old_controller_PIDS = [{"startTemp": 0, "old_PID": {"old_P": 10, "old_I": 20, "old_D": 30}, "old_HR": 3, "old_HO": 1},
-                           {"startTemp": 100, "old_PID": {"old_P": 20, "old_I": 30, "old_D": 0}, "old_HR": 3, "old_HO": 1},
-                           {"startTemp": 475, "old_PID": {"old_P": 30, "old_I": 20, "old_D": 10}, "old_HR": 3, "old_HO": 1}]
+    old_controller_PIDS = [
+        {"startTemp": 0, "old_PID": {"old_P": 10, "old_I": 20, "old_D": 30}, "old_HR": 3, "old_HO": 1},
+        {"startTemp": 100, "old_PID": {"old_P": 20, "old_I": 30, "old_D": 0}, "old_HR": 3, "old_HO": 1},
+        {"startTemp": 475, "old_PID": {"old_P": 30, "old_I": 20, "old_D": 10}, "old_HR": 3, "old_HO": 1}]
 
     # If you want to support more than 2 measurement devices at this setup, make sure to make this a list etc.
 
@@ -108,7 +110,7 @@ class GLaDOS(MeasurementSetup):
         return [GLaDOS.min_setpoint, GLaDOS.max_setpoint]
 
     def measurement_done(self):
-        pass    # at GLADOS, there is nothing to be done here, look at QUATRO as an example for when this is relevant
+        pass  # at GLADOS, there is nothing to be done here, look at QUATRO as an example for when this is relevant
 
     def init_after_creation(self):
         self._add_measurement_device_controllers()
@@ -125,7 +127,6 @@ class GLaDOS(MeasurementSetup):
             self.mdc_for_temp_controller = MeasurementDeviceController(self.dev_resource_manager)
 
     def _generate_controlables_from_devices(self):
-
         """Generate all currently available controlables with the connected devices
 
         """
@@ -180,9 +181,9 @@ class GLaDOS(MeasurementSetup):
             # temperature controller determines whether he uses old ones or current ones
             for index, item in enumerate(self.PIDs):
                 # first check whether it is bigger than the start_temp of the item
-                if new_value >= item ["startTemp"]:
+                if new_value >= item["startTemp"]:
                     # then check whether current value is lower than the start value of the next one, if yes, then bingo
-                    if new_value < self.PIDs[index+1]["startTemp"]:
+                    if new_value < self.PIDs[index + 1]["startTemp"]:
                         # we only send the PIDs if they changed:
                         if self.current_PID != item:
                             new_controlable = controlable["dev"].set_controlable(item)
@@ -257,8 +258,8 @@ class GLaDOS(MeasurementSetup):
         answer = UserInput.ask_user_for_input(question)["answer"]
         self.sample_sensor = sensors[answer]
 
-class Quatro(MeasurementSetup):
 
+class Quatro(MeasurementSetup):
     name_Quatro = "Quatro"
     min_setpoint = 0
     max_setpoint = 600
@@ -268,7 +269,8 @@ class Quatro(MeasurementSetup):
     mdc_for_temp_controller = None  # type: MeasurementDeviceController
     mdc_for_meas_device = None  # type: MeasurementDeviceController
 
-    Quatro_should_turn_off_after_measurement = True #Initializes the value that is important for when the measurement
+    Quatro_should_turn_off_after_measurement = True  # Initializes the value that is important for when the measurement
+
     # is finished.
 
     def init_after_creation(self):
@@ -279,7 +281,6 @@ class Quatro(MeasurementSetup):
 
     def get_controlables(self):
         return self.controlables
-
 
     def get_limits(self):
         return [Quatro.min_setpoint, Quatro.max_setpoint]
@@ -299,10 +300,9 @@ class Quatro(MeasurementSetup):
     def get_measurables(self):
         return self.measurables
 
-    def change_value_of_controlable_to(self, controlable:dict, new_value):
+    def change_value_of_controlable_to(self, controlable: dict, new_value):
         new_controlable = controlable["dev"].set_controlable({controlable["name"]: new_value})
         return new_controlable
-
 
     def measure_measurable(self, measurable):
         datapoint = measurable["dev"].measure_measurable(measurable["name"])
