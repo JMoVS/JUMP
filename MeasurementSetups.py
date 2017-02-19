@@ -275,7 +275,7 @@ class Quatro(MeasurementSetup):
         self._add_measurement_device_controllers()
         self._generate_controlables_from_devices()
         self._generate_measurables()
-        self._should_Qautro_turn_off()
+        self._should_Quatro_turn_off()
 
     def get_controlables(self):
         return self.controlables
@@ -337,7 +337,7 @@ class Quatro(MeasurementSetup):
             measurable = {"dev": self.mdc_for_meas_device, "name": dev_measurable}
             self.measurables.append(measurable)
 
-    def _should_Qautro_turn_off(self):
+    def _should_Quatro_turn_off(self):
         question = {"question_title": "Heaters after measurement",
                     "question_text": "Should the Quatro's heaters (Dewar and Gas) be powered off when the measurement "
                                      "is finished?",
