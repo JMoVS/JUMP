@@ -440,32 +440,32 @@ class Generic(MeasurementSetup):
             UserInput.confirm_warning("Please select the 2nd device out of the list")
             self.mdc2 = MeasurementDeviceController(self.dev_resource_manager)
 
-        user_wants_third_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
-                                                                 "question_text": "Do you want to configure a 3rd"
-                                                                                  "device for use?",
-                                                                 "default_answer": False,
-                                                                 "optiontype": "yes_no"})["answer"]
-        if user_wants_third_device and not self.mdc3:
-            UserInput.confirm_warning("Please select the 3rd device out of the list")
-            self.mdc3 = MeasurementDeviceController(self.dev_resource_manager)
+            user_wants_third_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                     "question_text": "Do you want to configure a 3rd"
+                                                                                      "device for use?",
+                                                                     "default_answer": False,
+                                                                     "optiontype": "yes_no"})["answer"]
+            if user_wants_third_device and not self.mdc3:
+                UserInput.confirm_warning("Please select the 3rd device out of the list")
+                self.mdc3 = MeasurementDeviceController(self.dev_resource_manager)
 
-        user_wants_fourth_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
-                                                                 "question_text": "Do you want to configure a 4th"
-                                                                                  "device for use?",
-                                                                 "default_answer": False,
-                                                                 "optiontype": "yes_no"})["answer"]
-        if user_wants_fourth_device and not self.mdc4:
-            UserInput.confirm_warning("Please select the 4th device out of the list")
-            self.mdc4 = MeasurementDeviceController(self.dev_resource_manager)
+                user_wants_fourth_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                         "question_text": "Do you want to configure a 4th"
+                                                                                          "device for use?",
+                                                                         "default_answer": False,
+                                                                         "optiontype": "yes_no"})["answer"]
+                if user_wants_fourth_device and not self.mdc4:
+                    UserInput.confirm_warning("Please select the 4th device out of the list")
+                    self.mdc4 = MeasurementDeviceController(self.dev_resource_manager)
 
-        user_wants_third_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
-                                                                 "question_text": "Do you want to configure a 5th"
-                                                                                  "device for use?",
-                                                                 "default_answer": False,
-                                                                 "optiontype": "yes_no"})["answer"]
-        if user_wants_third_device and not self.mdc5:
-            UserInput.confirm_warning("Please select the 5th device out of the list")
-            self.mdc5 = MeasurementDeviceController(self.dev_resource_manager)
+                    user_wants_fifth_device = UserInput.ask_user_for_input({"question_title": "Add another device?",
+                                                                             "question_text": "Do you want to configure a 5th"
+                                                                                              "device for use?",
+                                                                             "default_answer": False,
+                                                                             "optiontype": "yes_no"})["answer"]
+                    if user_wants_fifth_device and not self.mdc5:
+                        UserInput.confirm_warning("Please select the 5th device out of the list")
+                        self.mdc5 = MeasurementDeviceController(self.dev_resource_manager)
 
     def get_measurables(self):
         return self.measurables
