@@ -57,10 +57,10 @@ class MeasurementProgram:
                 "optiontype": "free_text"}
 
         self.operator = UserInput.ask_user_for_input(question)["answer"]
-
+        default_path = "C:\Data\JUMP" + os.sep + self.operator
         question = {"question_title": "Working directory",
                 "question_text": "Please choose a working directory for the following session with this program",
-                "default_answer": "C:\Data\JUMP\Tron",
+                "default_answer": default_path,
                 "optiontype": "free_text"}
 
         self.working_directory = UserInput.ask_user_for_input(question)["answer"] + os.sep
