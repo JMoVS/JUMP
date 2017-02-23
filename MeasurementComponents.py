@@ -110,7 +110,7 @@ class Trigger(Thread, Task):
 
     def generate_one_line_summary(self):
         if self.mode == "time":
-            summary = "Total time is {0} minutes. Firing off sub_taks every {1} minutes.".format(
+            summary = "Trigger: Total time is {0} minutes. Firing off sub_taks every {1} minutes.".format(
                 str(self.total_time_span), str(self.trigger_separation))
 
         else:
@@ -152,12 +152,12 @@ class DataAcquisition(Thread, Task):
         :rtype: str
         """
 
-        text = "Acquires data from" + self.measurable["dev"].name
+        text = "DataAcqu: Acquires data from" + self.measurable["dev"].name
         text += " and is "
         if self.average_through_sub_task:
             average = ""
         else:
-            average = "no "
+            average = "not "
 
         summary = text + average + "averaging datapoints while sub_tasks are run."
 
@@ -341,11 +341,12 @@ class ParameterController(Thread, Task):
         summary = ""
 
         if self.mode == "ramp":
-            summary = str(text) + str(dev_name) + str(controled_param) + "from " + str(self.start_value) + " to " + \
-                      str(self.end_value) + " triggering every " + str(self.trigger_separation) + \
-                      " and controlling at a rate of " + str(self.rate_for_controllable) + "."
+            summary = "ParamContr: " + str(text) + str(dev_name) + str(controled_param) + "from " + \
+                      str(self.start_value) + " to " + str(self.end_value) + " triggering every " + \
+                      str(self.trigger_separation) + " and controlling at a rate of " + str(self.rate_for_controllable)\
+                      + "."
         elif self.mode == "spec_values":
-            summary = str(text) + str(dev_name) + str(
+            summary = "ParamContr: " + str(text) + str(dev_name) + str(
                 controled_param) + "setting specified values and triggering sub_tasks then"
         return summary
 
@@ -909,7 +910,7 @@ class Measurement:
         UserInput.post_status("This is the current task list:")
 
         for task in self.tasks:
-            UserInput.post_status(str(task.identifier) + "task " + task.generate_one_line_summary())
+            UserInput.post_status(str(task.identifier) + " " + task.generate_one_line_summary())
 
     def measure(self):
         """
