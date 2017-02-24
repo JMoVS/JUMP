@@ -28,6 +28,7 @@ class Database:
         self.pickle_path = pickle_path
         self.creation_time = creation_time
         self.version = _version.__version__
+        self.processing_log = []
 
     def change_to_passed_db(self, unpickled_db):
         """
@@ -68,7 +69,7 @@ class Database:
             self.comment = "I fight for the User!"
 
     def start_fresh(self, name="Run1", pickle_path=".{0}".format(os.sep), experimenter="Tron", room="Dream World",
-                 comment="I fight for the User!", creation_time=time.strftime("%d.%m.%Y %H:%M:%S")):
+                    comment="I fight for the User!", creation_time=time.strftime("%d.%m.%Y %H:%M:%S")):
         """ You may want to make multiple measurement runs. This means though that the database should be cleared. This
         wipes all data and starts clean.
 
@@ -96,18 +97,18 @@ class Database:
         with open(filename, 'wb') as output:
             pickle.dump(self, output, -1)
 
-    def new_pickle_path(self, new_pickle_path:str):
+    def new_pickle_path(self, new_pickle_path: str):
         if not new_pickle_path.endswith(os.sep):
             new_pickle_path += os.sep
         self.pickle_path = new_pickle_path
 
-    def start_post_processing(self, path_to_opened_db:str):
+    def start_post_processing(self, path_to_opened_db: str):
         database_to_manipulate = copy.deepcopy(self)  # type: Database
         path = os.path.dirname(path_to_opened_db)
         if database_to_manipulate.pickle_path == ".{0}".format(os.sep):
             database_to_manipulate.pickle_path = os.getcwd() + os.sep
 
-        #TODO: Consider more useful path display
+        # TODO: Consider more useful path display
         question = {"question_title": "Output directory",
                     "question_text": "The current output directory is '{0}' . "
                                      "Do you want to change it?".format(path),
@@ -118,16 +119,134 @@ class Database:
 
         if user_wants_to_change_path:
             question = {"question_title": "Output directory",
-                    "question_text": "Please enter a working directory for the following processing session.",
-                    "default_answer": "C:\Data\JUMP",
-                    "optiontype": "free_text"}
+                        "question_text": "Please enter a working directory for the following processing session.",
+                        "default_answer": "C:\Data\JUMP",
+                        "optiontype": "free_text"}
 
             new_path = UserInput.ask_user_for_input(question)["answer"]
             path = new_path
 
         database_to_manipulate.new_pickle_path(path)
 
-        database_to_manipulate._post_process()
+        user_wants_to_try_guesstimated_auto_export = UserInput.ask_user_for_input(
+            {"question_title": "Auto-mode?",
+             "question_text": "JUMP can guesstimate and try to automatically export the data. Do you want to"
+                              "attempt an auto-export?",
+             "default_answer": True,
+             "optiontype": "yes_no"})["answer"]
+
+        if user_wants_to_try_guesstimated_auto_export:
+            database_to_manipulate._post_process_guesstimate_automatic()
+        else:
+            database_to_manipulate._post_process()
+
+    def _post_process_guesstimate_automatic(self):
+        """ This is the top-level wrapper method to auto-export databases with as little user input as possible
+        We need to do the following steps before data can be successfully exported:
+        1. Ask user for type of data (dielectric, other...) and ask other parameters if needed
+        """
+
+        #################################################
+        # 1. Geometry
+        #################################################
+
+        data_is_dielectric = UserInput.ask_user_for_input(
+            {"question_title": "Type of data",
+             "question_text": "To be able to successfully automatically calculate values, it is important that it's "
+                              "clear what kind of data is at hand. Is this Dielectric data?",
+             "default_answer": True,
+             "optiontype": "yes_no"})["answer"]
+
+
+        # Currently, we only calculate values if the data is dielectric data
+        if data_is_dielectric:
+            user_wants_geometry_calculations = UserInput.ask_user_for_input(
+                {"question_title": "Geometry depending value caluclations",
+                 "question_text": "Do you want geometry dependent value calculations? You'll get a chance to enter the"
+                                  "geometry in the next step if you want them.",
+                 "default_answer": True,
+                 "optiontype": "yes_no"})["answer"]
+            if user_wants_geometry_calculations:
+                self._geometry_based_calculations()
+            else:
+                self._geometry_less_calculations()
+
+        #################################################
+        # 2. Same level merges
+        # Automatic merge attempts to merge all datapoints that only differ in the last path component, but only if
+        # it's according to some conditions
+        # These are:
+        # - Only DataAcquisitions will get merged, and only if they have the same number of datapackages in them
+        # - Merging will start with the deepest level first and work outwards.
+        #
+        # The result is that dataAcquisitions on the same level with the same number of datapackges will get merged into
+        # the dataacquisition with the lower (speak first) index
+        #################################################
+
+        
+
+
+    def _automatic_same_level_merges(self):
+
+        pass
+
+    def _geometry_based_calculations(self):
+        """This method will prompt the user for geometry and calcualte all values, including the non-geometry dependend
+        ones.
+
+        """
+        question = {"question_title": "Sample Thickness",
+                    "question_text": "Please enter the sample's thickness in mm. Valid values range from 0 to "
+                                     "9999999, maximum accuracy is capped at 0.0000001",
+                    "default_answer": 1.0,
+                    "optiontype": "free_choice",
+                    "valid_options_lower_limit": 0.0,
+                    "valid_options_upper_limit": 9999999,
+                    "valid_options_steplength": 1e7}
+
+        thickness = UserInput.ask_user_for_input(question)["answer"]
+
+        question = {"question_title": "Sample area",
+                    "question_text": "Please enter the sample's area in mm^2. Valid values range from 0 to 9999999,"
+                                     " maximum accuracy is capped at 0.0000001",
+                    "default_answer": 1.0,
+                    "optiontype": "free_choice",
+                    "valid_options_lower_limit": 0.0,
+                    "valid_options_upper_limit": 9999999,
+                    "valid_options_steplength": 1e7}
+
+        area = UserInput.ask_user_for_input(question)["answer"]
+        self.geometry = {"thickness": thickness,
+                         "area": area}
+
+        UserInput.post_status("Successfully gathered the geometry info. All values will be calculated. This can "
+                              "take a moment.")
+
+        self.processing_log.append(time.strftime("%c") + ": User entered geometry. Starting value calculation.")
+        self.calculate_all_values(self.geometry)
+        self.processing_log.append(time.strftime("%c") + ": All values calculated.")
+
+    def _geometry_less_calculations(self):
+        """This method is called when the user doesn'T want geometry based calcualtions and subsequently, only values
+        that are not depending on the sample geometry will be calculated.
+
+        """
+        UserInput.post_status("Values will be calculated without geometry input, but calculation could nevertheless"
+                              " take a moment.")
+
+        self.processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
+        self.calculate_all_values()
+        self.geometry = {"Info": "no geometry given"}
+        self.processing_log.append(time.strftime("%c") + ": All values calculated.")
+
+    def print_current_processing_log(self, start_index=0):
+        """Little method to print the log of the processing workflow
+
+        :param start_index:
+        """
+        for index, item in enumerate(self.processing_log):
+            if index >= start_index:
+                UserInput.post_status(item)
 
     def _post_process(self):
         """ the post processing workflow follows the steps outlined in post_processing_steps
@@ -147,7 +266,6 @@ class Database:
                                  "9. Start file-output",
                                  "10. Be happy"]
 
-        processing_log = []
         current_log_index = 0
         UserInput.post_status("You are now in post processing mode. You are post-processing the database: " + self.name)
 
@@ -163,14 +281,7 @@ class Database:
                 if index >= start_index:
                     UserInput.post_status(item)
 
-        def print_current_processing_log(start_index=0):
-            """Little method to print the log of the processing workflow
 
-            :param start_index:
-            """
-            for index, item in enumerate(processing_log):
-                if index >= start_index:
-                    UserInput.post_status(item)
 
         def print_task_list_with_indeces():
             for index, item in enumerate(self.tasks):
@@ -230,18 +341,18 @@ class Database:
             UserInput.post_status("Successfully gathered the geometry info. All values will be calculated. This can "
                                   "take a moment.")
 
-            processing_log.append(time.strftime("%c") + ": User entered geometry. Starting value calculation.")
+            self.processing_log.append(time.strftime("%c") + ": User entered geometry. Starting value calculation.")
             self.calculate_all_values(self.geometry)
-            processing_log.append(time.strftime("%c") + ": All values calculated.")
+            self.processing_log.append(time.strftime("%c") + ": All values calculated.")
 
         else:
             UserInput.post_status("Values will be calculated without geometry input, but calculation could nevertheless"
                                   " take a moment.")
 
-            processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
+            self.processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
             self.calculate_all_values()
             self.geometry = {"Info": "no geometry given"}
-            processing_log.append(time.strftime("%c") + ": All values calculated.")
+            self.processing_log.append(time.strftime("%c") + ": All values calculated.")
 
         UserInput.post_status("All values are now calculated. Successfully finished step 1. New step is step 2.")
 
@@ -251,10 +362,10 @@ class Database:
         UserInput.post_status("####################################")
         UserInput.post_status("-------------Step 2: Same level merge-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 2")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 2")
 
         print_following_steps(1)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         UserInput.confirm_warning(
             "Now please merge all same-level tasks. Same level means that all but the very last index"
@@ -271,7 +382,7 @@ class Database:
         while not step2_is_finished:
             UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
             UserInput.post_status("Processing log for step 2:")
-            print_current_processing_log(current_log_index)
+            self.print_current_processing_log(current_log_index)
             UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
 
             question = {"question_title": "Merge same level tasks",
@@ -295,7 +406,7 @@ class Database:
                 identifier2 = get_task_id_from_task_list_index(index_list[1])
 
                 self.merge_same_level_datapoints(identifier1, identifier2)
-                processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
+                self.processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
                                       str(identifier1))
             else:
                 step2_is_finished = True
@@ -306,10 +417,10 @@ class Database:
         UserInput.post_status("####################################")
         UserInput.post_status("-------------Step 3: Different level merge-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 3")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 3")
         # We are at step 3, which starting counting at 0 means we should print 2 going forward
         print_following_steps(2)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         UserInput.confirm_warning(
             "Now please merge all different-level tasks. Different level means that all compinents "
@@ -321,7 +432,7 @@ class Database:
         while not step3_is_finished:
             UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
             UserInput.post_status("Processing log for step 3:")
-            print_current_processing_log(current_log_index)
+            self.print_current_processing_log(current_log_index)
             UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
 
             question = {"question_title": "Merge different level tasks",
@@ -345,7 +456,7 @@ class Database:
                 identifier2 = get_task_id_from_task_list_index(index_list[1])
 
                 self.merge_diff_level_datapoints(identifier1, identifier2)
-                processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
+                self.processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
                                       str(identifier1))
 
             else:
@@ -357,10 +468,10 @@ class Database:
         UserInput.post_status("####################################")
         UserInput.post_status("-------------Step 4: Multi-level integration-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 4")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 4")
 
         print_following_steps(3)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         UserInput.confirm_warning(
             "Now please integrate the tasks. This usually means integrating already merged sub_tasks."
@@ -375,7 +486,7 @@ class Database:
         while not step4_is_finished:
             UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
             UserInput.post_status("Processing log for all steps:")
-            print_current_processing_log(0)
+            self.print_current_processing_log(0)
             UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
 
             question = {"question_title": "Integrate datarows",
@@ -399,7 +510,7 @@ class Database:
                 identifier2 = get_task_id_from_task_list_index(index_list[1])
 
                 self.insert_sub_datapoints_into_parent_datapoint(identifier1, identifier2)
-                processing_log.append(time.strftime("%c") + ": Integrated " + str(identifier2) + " into -> "
+                self.processing_log.append(time.strftime("%c") + ": Integrated " + str(identifier2) + " into -> "
                                       + str(identifier1))
 
             else:
@@ -410,10 +521,10 @@ class Database:
 
         UserInput.post_status("-------------Step 5: Tasks for first output file-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 5")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 5")
 
         print_following_steps(4)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         datapoint_list_1 = []
 
@@ -432,7 +543,7 @@ class Database:
 
         indeces = UserInput.ask_user_for_input(question)["answer"]
 
-        processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
+        self.processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
 
         for index in indeces:
             task_identifier = get_task_id_from_task_list_index(index)
@@ -445,12 +556,12 @@ class Database:
 
         UserInput.post_status("-------------Step 6: Optionally transpose datapoints-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 6")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 6")
 
         user_wants_transposed = False
 
         print_following_steps(5)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         datapoint_list_2 = []
 
@@ -479,7 +590,7 @@ class Database:
             user_wants_tasks_from_step5 = UserInput.ask_user_for_input(question)["answer"]
 
             if user_wants_tasks_from_step5:
-                processing_log.append(time.strftime("%c") + ": Selected same tasks as in step 5 for file output 2.")
+                self.processing_log.append(time.strftime("%c") + ": Selected same tasks as in step 5 for file output 2.")
 
             elif not user_wants_tasks_from_step5:
 
@@ -492,7 +603,7 @@ class Database:
 
                 indeces = UserInput.ask_user_for_input(question)["answer"]
 
-                processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) +
+                self.processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) +
                                       " for output 2")
 
             # Add the datapoints to the output list 2
@@ -505,10 +616,10 @@ class Database:
         UserInput.post_status("####################################")
         UserInput.post_status("-------------1st OutputFile: Define file naming, header-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 7")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 7")
 
         print_following_steps(6)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         directory_name = ""
 
@@ -562,9 +673,9 @@ class Database:
                 UserInput.post_status(str(index) + ": " + key)
 
             question = {"question_title": "What attributes' values should be used to put in the file name?",
-                            "question_text": "Please only enter the 1 corresponding number",
-                            "default_answer": "0",
-                            "optiontype": "multi_indeces"}
+                        "question_text": "Please only enter the 1 corresponding number",
+                        "default_answer": "0",
+                        "optiontype": "multi_indeces"}
 
             index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
             key_for_file_name = main_task_keys_without_subtasks[index_chosen]
@@ -590,11 +701,10 @@ class Database:
             nineth_line = seventh_line
             header_lines = [first_line, second_line, third_line, fourth_line, fifth_line, sixth_line, seventh_line]
 
-
             # Now we access each datarow we have
             for main_task_data_point in main_task:
 
-                processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
+                self.processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
 
                 # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
                 # own file
@@ -604,7 +714,7 @@ class Database:
                 # We need to count up the file number and ready the str of it
                 file_number += 1
                 file_number_str = "%05d" % (
-                file_number,)  # we want leading 0s in the name so file explorers sort them correctly
+                    file_number,)  # we want leading 0s in the name so file explorers sort them correctly
 
                 outputfile = file_handler_1.create_file(file_name)
 
@@ -638,15 +748,16 @@ class Database:
             UserInput.post_status("####################################")
             UserInput.post_status("-------------2nd OutputFile: Define file naming, header and columns-------------")
 
-            processing_log.append(time.strftime("%c") + ": Entering step 8")
+            self.processing_log.append(time.strftime("%c") + ": Entering step 8")
 
             print_following_steps(7)
-            current_log_index = len(processing_log) - 1
+            current_log_index = len(self.processing_log) - 1
 
             directory_name = ""
 
-            UserInput.confirm_warning("Now to the hard part. The second list. This is the list containing your transposed "
-                                      "entries, so in Dielectrics parlance, the frequency files.")
+            UserInput.confirm_warning(
+                "Now to the hard part. The second list. This is the list containing your transposed "
+                "entries, so in Dielectrics parlance, the frequency files.")
 
             question = {"question_title": "Directory name",
                         "question_text": "Usually you want the directory named \"Frequencies\", do you want to use the "
@@ -697,10 +808,10 @@ class Database:
                     UserInput.post_status(str(index) + ": " + key)
 
                 question = {"question_title": "File name",
-                                "question_text": "What attributes' values should be used to put in the file name? Please "
-                                                 "only enter the 1 corresponding number",
-                                "default_answer": "0",
-                                "optiontype": "multi_indeces"}
+                            "question_text": "What attributes' values should be used to put in the file name? Please "
+                                             "only enter the 1 corresponding number",
+                            "default_answer": "0",
+                            "optiontype": "multi_indeces"}
 
                 index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
                 key_for_file_name = main_task_keys_without_subtasks[index_chosen]
@@ -753,7 +864,7 @@ class Database:
                 # Now we access each datarow we have
                 for main_task_data_point in main_task:
 
-                    processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
+                    self.processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
 
                     # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
                     # own file
@@ -797,19 +908,19 @@ class Database:
         UserInput.post_status("####################################")
         UserInput.post_status("-------------Making files-------------")
 
-        processing_log.append(time.strftime("%c") + ": Entering step 9")
+        self.processing_log.append(time.strftime("%c") + ": Entering step 9")
 
         print_following_steps(8)
-        current_log_index = len(processing_log) - 1
+        current_log_index = len(self.processing_log) - 1
 
         # We need to print out the processing log, the modified database itself and the task list.
 
         UserInput.post_status("Now Pickling the modified database. This could take some time!")
-        processing_log.append(time.strftime("%c") + ": Starting pickling of processed database.")
+        self.processing_log.append(time.strftime("%c") + ": Starting pickling of processed database.")
         self.pickle_database("_processed")
-        processing_log.append(time.strftime("%c") + ": Finished pickling.")
+        self.processing_log.append(time.strftime("%c") + ": Finished pickling.")
 
-        processing_log.append(time.strftime("%c") + ": Starting file output for task list.")
+        self.processing_log.append(time.strftime("%c") + ": Starting file output for task list.")
         filehandler_for_task_list = FileHandler(self.pickle_path)
         task_list_file = filehandler_for_task_list.create_file("{0}_tasks".format(self.name))
 
@@ -819,11 +930,11 @@ class Database:
             task_list_file.write_string(str(task))
         # Now stop the file Handler
         filehandler_for_task_list.start()
-        processing_log.append(time.strftime("%c") + ": Starting file output for first list.")
+        self.processing_log.append(time.strftime("%c") + ": Starting file output for first list.")
         # when we call start, we make a new Thread for the file handler which itself handles one file after the other
         file_handler_1.start()
         if user_wants_transposed:
-            processing_log.append(time.strftime("%c") + ": Starting file output for second list.")
+            self.processing_log.append(time.strftime("%c") + ": Starting file output for second list.")
             file_handler_2.start()
 
         UserInput.post_status("Waiting on output1 to finish")
@@ -841,7 +952,7 @@ class Database:
         UserInput.post_status("I sincerely hope your time with JUMP was good!")
         filehandler_for_log = FileHandler(self.pickle_path)
         processing_log_file = filehandler_for_log.create_file("{0}_processing_log".format(self.name))
-        for entry in processing_log:
+        for entry in self.processing_log:
             processing_log_file.write_string(str(entry))
         filehandler_for_log.start()
         filehandler_for_log.join()
@@ -1310,7 +1421,7 @@ class FileHandler(Thread):
         return output_file
 
     def write_once_one_threaded(self):
-        for file in self.list_of_files:     # type:OutputFile
+        for file in self.list_of_files:  # type:OutputFile
             file.start()
             file.should_start_writing = True
             file.should_finish = True
@@ -1318,12 +1429,12 @@ class FileHandler(Thread):
         self.did_finish_starting_asynchronous = True
 
     def _close_everything(self):  # Make sure to call the Threads' join method once at the end
-        for file in self.list_of_files:     # type:OutputFile
+        for file in self.list_of_files:  # type:OutputFile
             file.should_finish = True
 
         while not self.did_finish_starting_asynchronous:
             time.sleep(0.1)
-        for file in self.list_of_files:     # type:OutputFile
+        for file in self.list_of_files:  # type:OutputFile
             file.join()
 
     def get_files(self):
