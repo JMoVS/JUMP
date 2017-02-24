@@ -19,7 +19,7 @@ class MeasurementProgram:
 
     def __init__(self):
         self.operator = "Tron"
-        self.working_directory = ""
+        self.working_directory = "C:\Data\Tron\Run1"
         self.general_info_acquired = False
 
     def start(self):
@@ -77,14 +77,39 @@ class MeasurementProgram:
         self.general_info_acquired = True
 
     def work_with_db(self):
-        question = {"question_title": "Full path to db",
-                    "question_text": "Please enter the full path including file name for the database",
-                    "default_answer": "C:\Data\JUMP\Justin\my_run.JUMP",
-                    "optiontype": "free_text"}
-        full_path = UserInput.ask_user_for_input(question)["answer"]
+        unpickled_db = None # type: DataStorage.Database
+        full_path = None # type: str
+        user_didnt_manage_to_open_db = True
 
-        with open(full_path, 'rb') as incoming:
-            unpickled_db = pickle.load(incoming)  # type: DataStorage.Database
+        while user_didnt_manage_to_open_db:
+            question = {"question_title": "Path to db",
+                        "question_text": "Please enter the path to the folder containing the database (database's file "
+                                         "name shall be the same as the folder) or provide the full path incuding the"
+                                         " file name.",
+                        "default_answer": self.working_directory,
+                        "optiontype": "free_text"}
+            full_path = UserInput.ask_user_for_input(question)["answer"]  # type: str
+
+            # We first check whether the user provided us with a full path including the file name. We first split it folder
+            # path + file name at the ".". If that shows up empty (because you copied the path from explorer without the
+            # file name), we will then split at the last path component and attempt to open the database with the last path
+            # component.JUMP
+            path_split_to_filename = full_path.rpartition(".")
+            # Only valid if the user didn't include the file name
+            if path_split_to_filename[0] == "":
+                path_last_folder_split = full_path.rpartition(os.sep)
+                file_name = path_last_folder_split[2] + ".JUMP"
+                full_path = full_path + os.sep + file_name
+
+            try:
+                with open(full_path, 'rb') as incoming:
+                    unpickled_db = pickle.load(incoming)  # type: DataStorage.Database
+                user_didnt_manage_to_open_db = False
+            except FileNotFoundError:
+                UserInput.confirm_warning("A database wasn't found at {0}. Please provide a full path including the "
+                                          "file name or rename the database on disk so that the file name is the same "
+                                          "as the folder and the extension is '.JUMP.'".format(full_path))
+                user_didnt_manage_to_open_db = True
 
         DataStorage.main_db.change_to_passed_db(unpickled_db)
         DataStorage.main_db.start_post_processing(full_path)
