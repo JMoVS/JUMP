@@ -145,6 +145,12 @@ class Database:
         We need to do the following steps before data can be successfully exported:
         1. Ask user for type of data (dielectric, other...) and ask other parameters if needed
         """
+        #################################################
+        # Plumbing work
+        #################################################
+        # We want the task list to be a list containing dictionaries so we can easily access infos about identifier and
+        # task type
+        self.tasks = self.generate_task_list_with_indeces_and_types()
 
         #################################################
         # 1. Geometry
@@ -183,12 +189,44 @@ class Database:
         # the dataacquisition with the lower (speak first) index
         #################################################
 
-        
+
 
 
     def _automatic_same_level_merges(self):
-
+        
         pass
+
+    def generate_task_list_with_indeces_and_types(self):
+        new_task_list_with_dicts_containing_identifiers_type_and_summary = []
+        for task in self.tasks:
+            new_task = {}
+            # This will extract the "[0,0,0,0]" part out of it
+            identifier_str = task.split("]")[0].split("[")[1].split(",")
+            identifier = []
+            for item in identifier_str:
+                identifier.append(int(item))
+            # We now put in the identifier into the new task dictionary
+            new_task["identifier"] = identifier
+
+            # This will extract the type out of it, so eg "Trigger", "ParamContr" or "DataAquc"
+            type_str = task.split("] ")[1].split(": ")[0]
+            # We also want the new task dictionary to have an entry for the type:
+            new_task["type"] = type_str
+
+            # This will extract the one-line summary out of the string
+            task_summary = task.split(": ")[1]
+            # And we want the summary to be available as well
+            new_task["summary"] = task_summary
+            new_task_list_with_dicts_containing_identifiers_type_and_summary.append(new_task)
+        return new_task_list_with_dicts_containing_identifiers_type_and_summary
+
+    def get_task_id_from_task_list_index(self, index_in_task_list):
+        task = self.tasks[index_in_task_list]
+        identifier_str = task.split("]")[0].split("[")[1].split(",")
+        identifier = []
+        for item in identifier_str:
+            identifier.append(int(item))
+        return identifier
 
     def _geometry_based_calculations(self):
         """This method will prompt the user for geometry and calcualte all values, including the non-geometry dependend

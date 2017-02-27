@@ -110,6 +110,8 @@ class Trigger(Thread, Task):
 
     def generate_one_line_summary(self):
         if self.mode == "time":
+            # Due to some earlier design decisions, the human readable one line summary must begin with the word
+            # "Trigger: " because if it doesn't, the auto export will fail
             summary = "Trigger: Total time is {0} minutes. Firing off sub_taks every {1} minutes.".format(
                 str(self.total_time_span), str(self.trigger_separation))
 
@@ -151,7 +153,8 @@ class DataAcquisition(Thread, Task):
         :returns One-line summary
         :rtype: str
         """
-
+        # Due to some earlier design decisions, the human readable one line summary must begin with the word
+        # "DataAcqu: " because if it doesn't, the auto export will fail
         text = "DataAcqu: Acquires data from" + self.measurable["dev"].name
         text += " and is "
         if self.average_through_sub_task:
@@ -340,6 +343,8 @@ class ParameterController(Thread, Task):
         controled_param = self.meas_setup_controlable["name"] + " "
         summary = ""
 
+        # Due to some earlier design decisions, the human readable one line summary must begin with the word
+        # "ParamContr: " because if it doesn't, the auto export will fail
         if self.mode == "ramp":
             summary = "ParamContr: " + str(text) + str(dev_name) + str(controled_param) + "from " + \
                       str(self.start_value) + " to " + str(self.end_value) + " triggering every " + \
