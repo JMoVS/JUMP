@@ -141,7 +141,54 @@ class Database:
             database_to_manipulate._post_process()
 
     def _post_process_guesstimate_automatic(self):
-        """ This is the top-level wrapper method to auto-export databases with as little user input as possible
+        """ This is the top-level wrapper method to auto-export databases with as little user input as possible.
+        Different scenarios are covered:
+        Scenario 1: Sweeping
+        1a) Single Sweep:
+            [0] ParamContr:
+            [0,0] DataAcqu:
+        1b) Single Sweep:
+            [0] ParamContr:
+            [0,0] DataAcqu:
+            [0,1] DataAcqu
+        1c) Single Sweep:
+            [0] ParamContr:
+            [0,0] DataAcqu:
+            [0,0,0] DataAcqu:
+
+        Scenario 2: Measuring
+        2a)
+            [0] ParamContr:
+            [0,0] DataAcqu:
+            [0,0,0] ParamContr:
+            [0,0,0,0] DataAcqu:
+            [1] ParamContr:
+            [1,0] DataAcqu:
+            [1,0,0] ParamContr:
+            [1,0,0,0] DataAcqu:
+
+        2b)
+            [0] Trigger:
+            [0,0] DataAcqu:
+            [0,0,0] ParamContr:
+            [0,0,0,0] DataAcqu:
+
+        2c)
+            [0] Trigger:
+            [0,0] ParamContr:
+            [0,0,0] DataAcqu:
+
+
+        Stepwise process:
+        - DataAcqu that are a sub_task of a paramControl and have adjacent DataAcqu. will always be merged same-level
+        with those other DataAcqu (1b: [0,1] -> [0,0]
+        - DataAcqu that are a sub_task of another DataAcqu will always be merged into the top-level DataAcqu (eg 1c)
+         [0,0,0] -> [0,0])
+        - DataAcqu that are the sub_task of a ParamContr or a Trigger will be merged into the parent ParamContr/Trigger
+
+
+
+
         We need to do the following steps before data can be successfully exported:
         1. Ask user for type of data (dielectric, other...) and ask other parameters if needed
         """
@@ -193,7 +240,11 @@ class Database:
 
 
     def _automatic_same_level_merges(self):
-        
+        for index, task in enumerate(self.tasks):
+            # first check whether there is a sub_task. The task entries on the task list are lists and the first
+            # element is the identifier (debugge rmight help here ;-))
+            sub_tasks = self.sub_tasks_for_task(task[0])
+            
         pass
 
     def generate_task_list_with_indeces_and_types(self):
@@ -219,6 +270,34 @@ class Database:
             new_task["summary"] = task_summary
             new_task_list_with_dicts_containing_identifiers_type_and_summary.append(new_task)
         return new_task_list_with_dicts_containing_identifiers_type_and_summary
+
+    def sub_tasks_for_task(self, identifier: []):
+        """ This method returns the sub_tasks that are associated with a task. It's a close mirror to the method
+        implemented in MeasurementComponents
+        """
+        sub_tasks = []
+        own_id = identifier
+        # initialize own position in list (which is really just the index of the item at hand in the global list
+        own_position_in_list = int
+        # ok, we want to find ourselves:
+        for index, item in enumerate(self.tasks):
+            if own_id == item.identifier:
+                own_position_in_list = index
+
+        # now make a copy of the global list, and shorten it so it starts with us. As the global list is sorted, we can
+        # simply check if the next item has a shorter identifier or an identifier of equal length to know whether the
+        # next item is a sub_task or a task on the same level
+        temporary_global_list = self.tasks.copy()
+        temporary_global_list = temporary_global_list[(own_position_in_list + 1):]
+        own_length = len(own_id)
+        for item in temporary_global_list:
+            if len(item.identifier) == own_length + 1:
+                sub_tasks.append(item)
+            elif len(item.identifier) <= own_length:
+                break
+            else:
+                pass
+        return sub_tasks
 
     def get_task_id_from_task_list_index(self, index_in_task_list):
         task = self.tasks[index_in_task_list]
