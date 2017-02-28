@@ -1379,23 +1379,23 @@ class Keysight_MSO_X_3014T(MeasurementDevice):
 
     def select_device(self, should_be_selected_dev: [], resource_manager: visa.ResourceManager):
         if should_be_selected_dev[1] in self.idn_name_Keysight_MSO_X_3014T:
-            for DUMMY_ID in self.idn_name_Keysight_MSO_X_3014T:
-                if DUMMY_ID in should_be_selected_dev[1]:
-                    self.mes_device = DUMMY()
+            for Keysight_ID in self.idn_name_Keysight_MSO_X_3014T:
+                if Keysight_ID in should_be_selected_dev[1]:
+                    self.mes_device = Keysight_MSO_X_3014T()
                     self.mes_device.visa_instrument = None
                     """:type :MessageBasedResource"""  # in case of GPIB ones
 
                     self.mes_device.idn_name = self.idn_name_Keysight_MSO_X_3014T
                     self.mes_device.idn_alias = self.idn_alias_Keysight_MSO_X_3014T
                     self.mes_device.set_visa_dev(should_be_selected_dev[0], resource_manager)
-                    self.mes_device.measurables = DUMMY.measurables
-                    self.mes_device.controlables = DUMMY.controlables
+                    self.mes_device.measurables = Keysight_MSO_X_3014T.measurables
+                    self.mes_device.controlables = Keysight_MSO_X_3014T.controlables
         super().select_device(should_be_selected_dev, resource_manager)
 
     def detect_devices(self, instrument: visa.Resource, name_of_dev: str):
         for name in self.idn_name_Keysight_MSO_X_3014T:
             if name in name_of_dev:
-                self.recognized_devs.append((instrument, name, DUMMY.idn_alias_DUMMY))
+                self.recognized_devs.append((instrument, name, Keysight_MSO_X_3014T.idn_alias_Keysight_MSO_X_3014T))
         super().detect_devices(instrument, name_of_dev)
 
     def initialize_instrument(self):
