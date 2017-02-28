@@ -1348,6 +1348,59 @@ class Agilent3458A(MeasurementDevice):
         else:
             UserInput.post_status("Successfully initialized the Multimeter!")
 
+class Keysight_MSO_X_3014T(MeasurementDevice):
+    """The class for the hardware command implementation of KEYSIGHT TECHNOLOGIES,MSO-X 3014T"""
+    idn_name_Keysight_MSO_X_3014T, idn_alias_Keysight_MSO_X_3014T = importer(
+        "Keysight_MSO_X_3014T", "idn_name_Keysight_MSO_X_3014T", "idn_alias_Keysight_MSO_X_3014T")
+
+    measurables = ["V_max_Chan1CHan2"]
+    controlables = []
+
+    def measure_measurable(self, measurable_to_measure):
+        """
+
+        :param measurable_to_measure: The measurable that is to be measured
+        :return:
+        """
+
+        chan1value = self.visa_instrument.query_ascii_values(":MEAS:VMAX? CHAN1")
+        timeChan1 = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S:%f")
+        chan2value = self.visa_instrument.query_ascii_values(":MEAS:VMAX? CHAN2")
+        timeChan2 = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S:%f")
+        result = {"Vmax_Chan1": chan1value,
+                  "Vmax_Chan2": chan2value,
+                  "time_Chan1": timeChan1,
+                  "time_Chan2": timeChan2}
+        return result
+
+    def set_controlable(self, controlable_dict: {}):
+        # Nothing to do here, so far
+        return controlable_dict
+
+    def select_device(self, should_be_selected_dev: [], resource_manager: visa.ResourceManager):
+        if should_be_selected_dev[1] in self.idn_name_Keysight_MSO_X_3014T:
+            for DUMMY_ID in self.idn_name_Keysight_MSO_X_3014T:
+                if DUMMY_ID in should_be_selected_dev[1]:
+                    self.mes_device = DUMMY()
+                    self.mes_device.visa_instrument = None
+                    """:type :MessageBasedResource"""  # in case of GPIB ones
+
+                    self.mes_device.idn_name = self.idn_name_Keysight_MSO_X_3014T
+                    self.mes_device.idn_alias = self.idn_alias_Keysight_MSO_X_3014T
+                    self.mes_device.set_visa_dev(should_be_selected_dev[0], resource_manager)
+                    self.mes_device.measurables = DUMMY.measurables
+                    self.mes_device.controlables = DUMMY.controlables
+        super().select_device(should_be_selected_dev, resource_manager)
+
+    def detect_devices(self, instrument: visa.Resource, name_of_dev: str):
+        for name in self.idn_name_Keysight_MSO_X_3014T:
+            if name in name_of_dev:
+                self.recognized_devs.append((instrument, name, DUMMY.idn_alias_DUMMY))
+        super().detect_devices(instrument, name_of_dev)
+
+    def initialize_instrument(self):
+        # We also don't need to initialize anything so far, which is nice
+        pass
 
 
 class DUMMY(MeasurementDevice):
@@ -1401,7 +1454,7 @@ class DUMMY(MeasurementDevice):
         pass
 
 
-class MeasurementDeviceChooser(ALPHA, Temp_336, Quatro, Agilent4980A, Agilent3458A):
+class MeasurementDeviceChooser(ALPHA, Temp_336, Quatro, Agilent4980A, Agilent3458A, Keysight_MSO_X_3014T):
     """We need to do some work to get the correct device object. Initial goal was to build this in a way that it would
      be straight forward to implement a new hardware device and not need to change more than one additional line of
      code in the existing code base. The result after all magic is supposed to be an object from a specific hardware
