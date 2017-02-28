@@ -528,7 +528,7 @@ class Generic(MeasurementSetup):
                             self.measurables.append(measurable)
 
 
-class MeasurementSetupHelper(GLaDOS, Quatro, Generic, DUMMY):
+class MeasurementSetupHelper(Generic, GLaDOS, Quatro, DUMMY):
     def select_setup(self, to_be_selected_setups_name: str):
         """
 
