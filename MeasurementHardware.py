@@ -1363,9 +1363,9 @@ class Keysight_MSO_X_3014T(MeasurementDevice):
         :return:
         """
 
-        chan1value = self.visa_instrument.query_ascii_values(":MEAS:VMAX? CHAN1")
+        chan1value = self.visa_instrument.query_ascii_values(":MEAS:VMAX? CHAN1")[0]
         timeChan1 = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S:%f")
-        chan2value = self.visa_instrument.query_ascii_values(":MEAS:VMAX? CHAN2")
+        chan2value = self.visa_instrument.query_ascii_values(":MEAS:VMAX? CHAN2")[0]
         timeChan2 = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S:%f")
         result = {"Vmax_Chan1": chan1value,
                   "Vmax_Chan2": chan2value,
