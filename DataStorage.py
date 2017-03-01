@@ -236,16 +236,23 @@ class Database:
         # the dataacquisition with the lower (speak first) index
         #################################################
 
-
-
-
     def _automatic_same_level_merges(self):
         for index, task in enumerate(self.tasks):
-            # first check whether there is a sub_task. The task entries on the task list are lists and the first
-            # element is the identifier (debugge rmight help here ;-))
-            sub_tasks = self.sub_tasks_for_task(task[0])
-            
-        pass
+            # First check whether it's a dataacquisition at all
+            if task["type"] == "DataAcqu" and task["wasMerged"] is False:
+                for index_of_second_iteration, second_task in enumerate(self.tasks[index+1:]):
+                    # Compare the two task id's together and check whether it matches except for the very last
+                    # object Each task object is a list with an index, a type and a string. Accessing the [0]
+                    # returns the index, which itself is a list.
+                    if second_task["identifier"][:-1] == task["identifier"][:-1] and \
+                                    second_task["wasMerged"] is False and second_task["type"] == "DataAcqu":
+                    # When we arrive here, we are sure that we have two DataAqcuisitions with the same
+                    # identifier except the very last bit and we can merge them same level
+                        self.merge_same_level_datapoints(task["identifier"], second_task["identifier"])
+                        second_task["wasMerged"] = True
+                        self.processing_log.append(time.strftime("%c") + ": Merged " +
+                                                   str(second_task["identifier"]) + " into " +
+                                                   str(task["identifier"]))
 
     def generate_task_list_with_indeces_and_types(self):
         new_task_list_with_dicts_containing_identifiers_type_and_summary = []
@@ -269,6 +276,9 @@ class Database:
             # And we want the summary to be available as well
             new_task["summary"] = task_summary
             new_task_list_with_dicts_containing_identifiers_type_and_summary.append(new_task)
+            # And we want information about whether it was merged and integrated yet or not
+            new_task["wasMerged"] = False
+            new_task["wasIntegrated"] = False
         return new_task_list_with_dicts_containing_identifiers_type_and_summary
 
     def sub_tasks_for_task(self, identifier: []):
