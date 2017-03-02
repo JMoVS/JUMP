@@ -237,10 +237,14 @@ class Database:
         #################################################
 
     def _automatic_same_level_merges(self):
+        """This method merges all DataAcquisitions that are on the same level and adjacent into the very first of the
+        DataAcquisitions
+
+        """
         for index, task in enumerate(self.tasks):
             # First check whether it's a dataacquisition at all
             if task["type"] == "DataAcqu" and task["wasMerged"] is False:
-                for index_of_second_iteration, second_task in enumerate(self.tasks[index+1:]):
+                for second_task in self.tasks[index+1:]:
                     # Compare the two task id's together and check whether it matches except for the very last
                     # object Each task object is a list with an index, a type and a string. Accessing the [0]
                     # returns the index, which itself is a list.
@@ -253,6 +257,16 @@ class Database:
                         self.processing_log.append(time.strftime("%c") + ": Merged " +
                                                    str(second_task["identifier"]) + " into " +
                                                    str(task["identifier"]))
+
+    def _automatic_different_level_merges(self):
+        """This method will merge sub_task DataAcquisitions into parent DataAcquisitions and parent ParamContr/Triggers,
+         going from deepest level upwards as needed
+
+        """
+        for index, task in enumerate(self.tasks):
+            if task["type"] == "DataAcqu" and task["wasMerged"] is False:
+                for 
+        pass
 
     def generate_task_list_with_indeces_and_types(self):
         new_task_list_with_dicts_containing_identifiers_type_and_summary = []
