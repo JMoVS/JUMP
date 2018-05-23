@@ -258,14 +258,17 @@ class Database:
                                                    str(second_task["identifier"]) + " into " +
                                                    str(task["identifier"]))
 
-    def _automatic_different_level_merges(self):
+    def _automatic_different_level_merges(self, task_list):
         """This method will merge sub_task DataAcquisitions into parent DataAcquisitions and parent ParamContr/Triggers,
          going from deepest level upwards as needed
 
         """
-        for index, task in enumerate(self.tasks):
-            if task["type"] == "DataAcqu" and task["wasMerged"] is False:
-                for 
+        if self.tasks[0]["type"] == "DataAcqu" and self.tasks[0]["wasMerged"] is False:
+            for index, task in enumerate(self.tasks[task_list_index+1:]):
+
+
+        result = {}
+        result["should_be_merged"] = False
         pass
 
     def generate_task_list_with_indeces_and_types(self):
