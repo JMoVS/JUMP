@@ -1405,9 +1405,11 @@ class Keysight_MSO_X_3014T(MeasurementDevice):
 
 
 class NIMaxScreenshots(MeasurementDevice):
+    import mss
+    import mss.tools
     """The class for the hardware command implementation of a Generic device """
     idn_name_NIMaxScreenshots, idn_alias_NIMaxScreenshots = importer("NIMaxScreenshots", "idn_name_NIMaxScreenshots", "idn_alias_NIMaxScreenshots")
-    measurables = ["Ch1", "Ch2", "Ch3", "Ch4", "Ch5", "Ch6", "Ch7", "Ch8"]
+    measurables = ["Channels 1-8 in mV"]
     controlables = []
 
     def measure_measurable(self, measurable_to_measure):
@@ -1416,12 +1418,88 @@ class NIMaxScreenshots(MeasurementDevice):
         :param measurable_to_measure: The measurable that is to be measured
         :return:
         """
-        # Svreenshot values test(80,430,70,190)
+        # Screenshot values test(120,430,70,150)
+        import mss
+        import mss.tools
+        import numpy
+        import cv2
+        import pytesseract
+        #TODO: Dirty hack currently regarding pytesseract path
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-        dev_string = self.visa_instrument.query("caffeine-concentration?")
+        screenshot_not_sufficient=True
 
-        result = {"caffeine-concentration": dev_string,
-                  "time_caffeine-concentration": time.strftime("%d.%m.%Y %H:%M:%S")}
+        while(screenshot_not_sufficient):
+
+            with mss.mss() as sct:
+                # Get information of monitor 2
+                monitor_number = 1
+                mon = sct.monitors[monitor_number]
+
+                # The screen part to capture
+                monitor = {
+                    "top": mon["top"] + 120,  # 100px from the top
+                    "left": mon["left"] + 430,  # 100px from the left
+                    "width": 70,
+                    "height": 150,
+                    "mon": monitor_number,
+                }
+
+                output = "sct-{top}x{left}_{width}x{height}.png".format(**monitor)
+
+                # Grab the data
+                sct_img = sct.grab(monitor)
+
+            #Put it into OpenCV
+            img = numpy.array(sct_img)
+            grayscale=cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+            (thresh, bw_image) = cv2.threshold(grayscale, 127, 255, cv2.THRESH_BINARY)
+
+            #UpScale
+            upscale_factor=3
+            new_width=int(img.shape[1]*upscale_factor)
+            new_height=int(img.shape[0]*upscale_factor)
+            dim=(new_width, new_height)
+            resized_im=cv2.resize(bw_image, dim)
+
+            cv2.imshow("tesserInput", resized_im)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            recognised_text= pytesseract.image_to_string(resized_im)
+            raw_channels = recognised_text.split()
+            channels=[]
+            if len(raw_channels)>8:
+                # This case happens when +es are separated from their values
+                for index, raw_channel in enumerate(raw_channels):
+                    # Remove space
+                    raw_channel.replace(" ", "")
+                    if raw_channel == "+" or raw_channel == "-":
+                        raw_channels[index+1]=raw_channel+raw_channels[index+1]
+                        raw_channels.pop(index)
+
+            if len(raw_channels)==8:
+                raw_channel: str
+                for raw_channel in raw_channels:
+                    try:
+                        channel_value=float((raw_channel.replace(",",".")))
+                        channels.append(channel_value)
+                    except ValueError:
+                        print("Got bad screenshot, printing current parsed status, will take new one and try to carry on")
+                        break
+                #We managed to squeeze 8 values out of our screenshot
+                screenshot_not_sufficient=False
+            else:
+                screenshot_not_sufficient=True
+
+        result = {"Ch1": channels[0],
+                  "Ch2": channels[1],
+                  "Ch3": channels[2],
+                  "Ch4": channels[3],
+                  "Ch5": channels[4],
+                  "Ch6": channels[5],
+                  "Ch7": channels[6],
+                  "Ch8": channels[7],
+                  "time_channel_screenshot": time.strftime("%d.%m.%Y %H:%M:%S")}
         return result
 
     def set_controlable(self, controlable_dict: {}):
@@ -1449,18 +1527,8 @@ class NIMaxScreenshots(MeasurementDevice):
         super().detect_devices(instrument, name_of_dev)
 
     def initialize_instrument(self):
-        import mss
-        import mss.tools
-        with mss.mss() as sct:
-            # The screen part to capture
-            monitor = {"top": 160, "left": 160, "width": 160, "height": 135}
-            output = "sct-{top}x{left}_{width}x{height}.png".format(**monitor)
 
-            # Grab the data
-            sct_img = sct.grab(monitor)
-
-            # Save to the picture file
-            mss.tools.to_png(sct_img.rgb, sct_img.size, output=output)
+        pass
 
 class DUMMY(MeasurementDevice):
     """The class for the hardware command implementation of a Generic device """
