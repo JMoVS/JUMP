@@ -74,6 +74,7 @@ class MeasurementDeviceController:
                 except visa.VisaIOError:
                     pass
             instrument_instance.close()
+        self.idn_list.append((None,"NIMaxScreenshots"))
 
     def initialize_device(self):
         """method to initialize the device to be ready for measurement"""
@@ -1403,6 +1404,64 @@ class Keysight_MSO_X_3014T(MeasurementDevice):
         pass
 
 
+class NIMaxScreenshots(MeasurementDevice):
+    """The class for the hardware command implementation of a Generic device """
+    idn_name_NIMaxScreenshots, idn_alias_NIMaxScreenshots = importer("NIMaxScreenshots", "idn_name_NIMaxScreenshots", "idn_alias_NIMaxScreenshots")
+    measurables = ["Ch1", "Ch2", "Ch3", "Ch4", "Ch5", "Ch6", "Ch7", "Ch8"]
+    controlables = []
+
+    def measure_measurable(self, measurable_to_measure):
+        """
+
+        :param measurable_to_measure: The measurable that is to be measured
+        :return:
+        """
+        # Svreenshot values test(80,430,70,190)
+
+        dev_string = self.visa_instrument.query("caffeine-concentration?")
+
+        result = {"caffeine-concentration": dev_string,
+                  "time_caffeine-concentration": time.strftime("%d.%m.%Y %H:%M:%S")}
+        return result
+
+    def set_controlable(self, controlable_dict: {}):
+        # No controlables available
+        pass
+
+    def select_device(self, should_be_selected_dev: [], resource_manager: visa.ResourceManager):
+        if should_be_selected_dev[1] in self.idn_name_NIMaxScreenshots:
+            for NIMaxScreenshotsID in self.idn_name_NIMaxScreenshots:
+                if NIMaxScreenshotsID in should_be_selected_dev[1]:
+                    self.mes_device = NIMaxScreenshots()
+                    self.mes_device.visa_instrument = None
+                    """:type :MessageBasedResource"""  # in case of GPIB ones
+
+                    self.mes_device.idn_name = self.idn_name_NIMaxScreenshots
+                    self.mes_device.idn_alias = self.idn_alias_NIMaxScreenshots
+                    self.mes_device.measurables = NIMaxScreenshots.measurables
+                    self.mes_device.controlables = NIMaxScreenshots.controlables
+        super().select_device(should_be_selected_dev, resource_manager)
+
+    def detect_devices(self, instrument: visa.Resource, name_of_dev: str):
+        for name in self.idn_name_NIMaxScreenshots:
+            if name in name_of_dev:
+                self.recognized_devs.append((instrument, name, NIMaxScreenshots.idn_alias_NIMaxScreenshots))
+        super().detect_devices(instrument, name_of_dev)
+
+    def initialize_instrument(self):
+        import mss
+        import mss.tools
+        with mss.mss() as sct:
+            # The screen part to capture
+            monitor = {"top": 160, "left": 160, "width": 160, "height": 135}
+            output = "sct-{top}x{left}_{width}x{height}.png".format(**monitor)
+
+            # Grab the data
+            sct_img = sct.grab(monitor)
+
+            # Save to the picture file
+            mss.tools.to_png(sct_img.rgb, sct_img.size, output=output)
+
 class DUMMY(MeasurementDevice):
     """The class for the hardware command implementation of a Generic device """
     idn_name_DUMMY, idn_alias_DUMMY = importer("DUMMY", "idn_name_DUMMY", "idn_alias_DUMMY")
@@ -1454,7 +1513,7 @@ class DUMMY(MeasurementDevice):
         pass
 
 
-class MeasurementDeviceChooser(ALPHA, Temp_336, Quatro, Agilent4980A, Agilent3458A, Keysight_MSO_X_3014T):
+class MeasurementDeviceChooser(ALPHA, Temp_336, Quatro, Agilent4980A, Agilent3458A, Keysight_MSO_X_3014T, NIMaxScreenshots):
     """We need to do some work to get the correct device object. Initial goal was to build this in a way that it would
      be straight forward to implement a new hardware device and not need to change more than one additional line of
      code in the existing code base. The result after all magic is supposed to be an object from a specific hardware
