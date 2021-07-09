@@ -1427,12 +1427,14 @@ class NIMaxScreenshots(MeasurementDevice):
         #TODO: Dirty hack currently regarding pytesseract path
         pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-        screenshot_not_sufficient=True
-
-        while(screenshot_not_sufficient):
-
+        screenshot_sufficient = False
+        screenshot_tries = 0
+        while not screenshot_sufficient:
+            # Quickly check if this is the nth retry and we should notify the user:
+            if screenshot_tries > 10:
+                UserInput.post_status("Already tried 10 screenshots - is the NIMax window visible and maximised?")
             with mss.mss() as sct:
-                # Get information of monitor 2
+                # Get information of monitor
                 monitor_number = 1
                 mon = sct.monitors[monitor_number]
 
@@ -1456,41 +1458,43 @@ class NIMaxScreenshots(MeasurementDevice):
             (thresh, bw_image) = cv2.threshold(grayscale, 127, 255, cv2.THRESH_BINARY)
 
             #UpScale
-            upscale_factor=3
+            upscale_factor=2
             new_width=int(img.shape[1]*upscale_factor)
             new_height=int(img.shape[0]*upscale_factor)
             dim=(new_width, new_height)
             resized_im=cv2.resize(bw_image, dim)
 
-            cv2.imshow("tesserInput", resized_im)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            # cv2.imshow("tesserInput", resized_im)
+            # cv2.waitKey(0)
             recognised_text= pytesseract.image_to_string(resized_im)
             raw_channels = recognised_text.split()
             channels=[]
-            if len(raw_channels)>8:
+            if len(raw_channels) > 8:
                 # This case happens when +es are separated from their values
                 for index, raw_channel in enumerate(raw_channels):
                     # Remove space
                     raw_channel.replace(" ", "")
                     if raw_channel == "+" or raw_channel == "-":
-                        raw_channels[index+1]=raw_channel+raw_channels[index+1]
+                        raw_channels[index+1] = raw_channel+raw_channels[index+1]
                         raw_channels.pop(index)
 
-            if len(raw_channels)==8:
+            if len(raw_channels) == 8:
                 raw_channel: str
+                error_occured = False
                 for raw_channel in raw_channels:
                     try:
-                        channel_value=float((raw_channel.replace(",",".")))
+                        channel_value = float((raw_channel.replace(",", ".")))
                         channels.append(channel_value)
                     except ValueError:
-                        print("Got bad screenshot, printing current parsed status, will take new one and try to carry on")
-                        break
+                        UserInput.post_status("Got bad screenshot, printing current parsed status, will take new one "
+                                              "and try to carry on")
+                        error_occured=True
                 #We managed to squeeze 8 values out of our screenshot
-                screenshot_not_sufficient=False
-            else:
-                screenshot_not_sufficient=True
-
+                if not error_occured:
+                    screenshot_sufficient = True
+            if len(channels) < 8:
+                screenshot_sufficient = False
+            screenshot_tries += 1
         result = {"Ch1": channels[0],
                   "Ch2": channels[1],
                   "Ch3": channels[2],
@@ -1500,6 +1504,7 @@ class NIMaxScreenshots(MeasurementDevice):
                   "Ch7": channels[6],
                   "Ch8": channels[7],
                   "time_channel_screenshot": time.strftime("%d.%m.%Y %H:%M:%S")}
+        # cv2.destroyAllWindows()
         return result
 
     def set_controlable(self, controlable_dict: {}):

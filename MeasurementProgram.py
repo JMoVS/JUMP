@@ -89,6 +89,7 @@ class MeasurementProgram:
                         "default_answer": self.working_directory,
                         "optiontype": "free_text"}
             full_path = UserInput.ask_user_for_input(question)["answer"]  # type: str
+            full_path = full_path.replace("\"", "")
 
             # We first check whether the user provided us with a full path including the file name. We first split it folder
             # path + file name at the ".". If that shows up empty (because you copied the path from explorer without the
