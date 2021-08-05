@@ -885,12 +885,12 @@ class Database:
             #Step 3:
             processing_log.append(time.strftime("%c") + ": Entering step 3")
             current_log_index = len(processing_log) - 1
-            self.merge_diff_level_datapoints(2, 3)
+            self.merge_diff_level_datapoints(1,2)
             
             #Step 4:
             processing_log.append(time.strftime("%c") + ": Entering step 4")
             current_log_index = len(processing_log) - 1
-            self.insert_sub_datapoints_into_parent_datapoint(1, 2)
+            self.insert_sub_datapoints_into_parent_datapoint(0,1)
             
             #Step 5:
             processing_log.append(time.strftime("%c") + ": Entering step 5")
@@ -905,7 +905,10 @@ class Database:
             
             #Step 7
             processing_log.append(time.strftime("%c") + ": Entering step 7")
-            #directory_name = os.path.join(self.pickle_path, "Temperatures{0}".format(os.sep))# Not sure if this is the right one
+            question = {"question_title": "name for directory",
+                            "question_text": "Please choose a working directory for output of list 1",
+                            "default_answer": "Temperatures",
+                            "optiontype": "free_text"}
             directory_name = UserInput.ask_user_for_input(question)["answer"]
             directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
             file_handler_1 = FileHandler(directory_name)
