@@ -28,6 +28,7 @@ class Database:
         self.pickle_path = pickle_path
         self.creation_time = creation_time
         self.version = _version.__version__
+        self.task_input=[]#Helps with setting up a template
 
     def change_to_passed_db(self, unpickled_db):
         """
@@ -126,14 +127,7 @@ class Database:
             path = new_path
 
         database_to_manipulate.new_pickle_path(path)
-
-        database_to_manipulate._post_process()
-
-    def _post_process(self):
-        """ the post processing workflow follows the steps outlined in post_processing_steps
-
-        """
-
+        
         UserInput.post_status("")
         UserInput.post_status("-------------Choose template-------------")
 
@@ -147,6 +141,19 @@ class Database:
                     "valid_options": ["Custom","S001"]}
         
         chosen_template = UserInput.ask_user_for_input(question)["answer"]
+        if chosen_template=="Custom":
+            database_to_manipulate._post_process(True)
+        elif chosen_template=="S001":
+            template=[False,False,True,[1,2],False,True,[0,1],False,0,False,False,0]#TODO Testing
+            database_to_manipulate._post_process(False,template)
+        
+
+    def _post_process(self, custom:bool=True,template=[]):
+        """ the post processing workflow follows the steps outlined in post_processing_steps
+
+        """
+        template=template;
+        
         
         post_processing_steps = ["1. Ask user whether he wants geometry based calculations and calculate all possible"
                                  " values",
@@ -204,7 +211,7 @@ class Database:
         # -------------------------------------------------------------------------------------------------------------
         
        
-        if chosen_template=="Custom":
+        if True:
             # Step 1: Ask user whether he wants geometry based calculations and calculate all possible values
     
             print_following_steps(0)
@@ -220,7 +227,7 @@ class Database:
                         "default_answer": True,
                         "optiontype": "yes_no"}
     
-            user_wants_geometry = UserInput.ask_user_for_input(question)["answer"]
+            user_wants_geometry = self._get_input(custom, question, template)
     
             if user_wants_geometry:
                 question = {"question_title": "Sample Thickness",
@@ -232,7 +239,7 @@ class Database:
                             "valid_options_upper_limit": 9999999,
                             "valid_options_steplength": 1e7}
     
-                thickness = UserInput.ask_user_for_input(question)["answer"]
+                thickness = self._get_input(custom, question, template)
     
                 question = {"question_title": "Sample area",
                             "question_text": "Please enter the sample's area in mm^2. Valid values range from 0 to 9999999,"
@@ -243,7 +250,7 @@ class Database:
                             "valid_options_upper_limit": 9999999,
                             "valid_options_steplength": 1e7}
     
-                area = UserInput.ask_user_for_input(question)["answer"]
+                area = self._get_input(custom, question, template)
                 self.geometry = {"thickness": thickness,
                                  "area": area}
     
@@ -299,7 +306,7 @@ class Database:
                             "default_answer": False,
                             "optiontype": "yes_no"}
     
-                user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
+                user_wants_new_merge = self._get_input(custom, question, template)
     
                 if user_wants_new_merge:
                     print_task_list_with_indeces()
@@ -309,7 +316,7 @@ class Database:
                                                  "<<integrated>> into the <<first>> one.",
                                 "default_answer": "0",
                                 "optiontype": "2_indeces"}
-                    index_list = UserInput.ask_user_for_input(question)["answer"]
+                    index_list = self._get_input(custom, question, template)
     
                     identifier1 = get_task_id_from_task_list_index(index_list[0])
                     identifier2 = get_task_id_from_task_list_index(index_list[1])
@@ -348,7 +355,7 @@ class Database:
                             "default_answer": False,
                             "optiontype": "yes_no"}
     
-                user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
+                user_wants_new_merge = self._get_input(custom, question, template)
     
                 if user_wants_new_merge:
                     print_task_list_with_indeces()
@@ -358,7 +365,7 @@ class Database:
                                                  "<<integrated>> into the <<first>> one.",
                                 "default_answer": "0",
                                 "optiontype": "2_indeces"}
-                    index_list = UserInput.ask_user_for_input(question)["answer"]
+                    index_list = self._get_input(custom, question, template)
     
                     identifier1 = get_task_id_from_task_list_index(index_list[0])
                     identifier2 = get_task_id_from_task_list_index(index_list[1])
@@ -402,7 +409,7 @@ class Database:
                             "default_answer": False,
                             "optiontype": "yes_no"}
     
-                user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
+                user_wants_new_merge = self._get_input(custom, question, template)
     
                 if user_wants_new_merge:
                     print_task_list_with_indeces()
@@ -412,7 +419,7 @@ class Database:
                                                  "<<integrated>> into the <<first>> one.",
                                 "default_answer": "0",
                                 "optiontype": "2_indeces"}
-                    index_list = UserInput.ask_user_for_input(question)["answer"]
+                    index_list = self._get_input(custom, question, template)
     
                     identifier1 = get_task_id_from_task_list_index(index_list[0])
                     identifier2 = get_task_id_from_task_list_index(index_list[1])
@@ -449,7 +456,7 @@ class Database:
                         "default_answer": "0,4,8,12",
                         "optiontype": "multi_indeces"}
     
-            indeces = UserInput.ask_user_for_input(question)["answer"]
+            indeces = self._get_input(custom, question, template)
     
             processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
     
@@ -482,7 +489,7 @@ class Database:
                         "default_answer": True,
                         "optiontype": "yes_no"}
     
-            user_wants_transposed = UserInput.ask_user_for_input(question)["answer"]
+            user_wants_transposed = self._get_input(custom, question, template)
     
             if user_wants_transposed:
     
@@ -495,7 +502,7 @@ class Database:
                             "default_answer": True,
                             "optiontype": "yes_no"}
     
-                user_wants_tasks_from_step5 = UserInput.ask_user_for_input(question)["answer"]
+                user_wants_tasks_from_step5 = self._get_input(custom, question, template)
     
                 if user_wants_tasks_from_step5:
                     processing_log.append(time.strftime("%c") + ": Selected same tasks as in step 5 for file output 2.")
@@ -509,7 +516,7 @@ class Database:
                                 "default_answer": "0,4,8,12",
                                 "optiontype": "multi_indeces"}
     
-                    indeces = UserInput.ask_user_for_input(question)["answer"]
+                    indeces = self._get_input(custom, question, template)
     
                     processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) +
                                           " for output 2")
@@ -539,7 +546,7 @@ class Database:
                                          "default?",
                         "default_answer": True,
                         "optiontype": "yes_no"}
-            user_is_fine_with_temperatures = UserInput.ask_user_for_input(question)["answer"]
+            user_is_fine_with_temperatures = self._get_input(custom, question, template)
             if user_is_fine_with_temperatures:
                 directory_name = os.path.join(self.pickle_path, "Temperatures{0}".format(os.sep))
     
@@ -557,7 +564,7 @@ class Database:
             file_number = 1
             file_number_str = "%05d" % (file_number,)  # we want leading 0s in the file name so file explorers sort them
             # correctly
-            #TODO Implement following part into S001 export option
+            
     
             # Now iterate over all main tasks in the list:
     
@@ -586,7 +593,7 @@ class Database:
                                 "default_answer": "0",
                                 "optiontype": "multi_indeces"}
     
-                index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
+                index_chosen = self._get_input(custom, question, template)
                 key_for_file_name = main_task_keys_without_subtasks[index_chosen]
     
                 keys_for_sub_task_datapoints = []
@@ -673,7 +680,7 @@ class Database:
                                              "default?",
                             "default_answer": True,
                             "optiontype": "yes_no"}
-                user_is_fine_with_temperatures = UserInput.ask_user_for_input(question)["answer"]
+                user_is_fine_with_temperatures = self._get_input(custom, question, template)
                 if user_is_fine_with_temperatures:
                     directory_name = os.path.join(self.pickle_path, "Frequencies{0}".format(os.sep))
     
@@ -684,7 +691,7 @@ class Database:
                                 "default_answer": "Frequencies",
                                 "optiontype": "free_text"}
     
-                    directory_name = UserInput.ask_user_for_input(question)["answer"]
+                    directory_name = self._get_input(custom, question, template)
                     directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
     
                 file_handler_2 = FileHandler(directory_name)
@@ -722,7 +729,7 @@ class Database:
                                     "default_answer": "0",
                                     "optiontype": "multi_indeces"}
     
-                    index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
+                    index_chosen = self._get_input(custom, question, template)
                     key_for_file_name = main_task_keys_without_subtasks[index_chosen]
     
                     keys_for_sub_task_datapoints = []
@@ -762,7 +769,7 @@ class Database:
                                 "default_answer": "0,3",
                                 "optiontype": "multi_indeces"}
     
-                    indeces_chosen = UserInput.ask_user_for_input(question)["answer"]
+                    indeces_chosen = self._get_input(custom, question, template)
     
                     keys_for_file_header2 = []
                     for index in indeces_chosen:
@@ -868,177 +875,34 @@ class Database:
             UserInput.post_status("Closed the log file. Bye bye!")
             
             
-        elif chosen_template=="S001":
-            processing_log = []
-            current_log_index = 0
+        
             
-            #Step 1: Geometry of the system
-            processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
-            self.calculate_all_values()
-            self.geometry = {"Info": "no geometry given"}
-            processing_log.append(time.strftime("%c") + ": All values calculated.")
-            
-            #Step 2:
-            processing_log.append(time.strftime("%c") + ": Entering step 2")
-            #print_following_steps(1)
-            current_log_index = len(processing_log) - 1
-            
-            #Step 3:
-            processing_log.append(time.strftime("%c") + ": Entering step 3")
-            current_log_index = len(processing_log) - 1
-            self.merge_diff_level_datapoints(1,2)
-            
-            #Step 4:
-            processing_log.append(time.strftime("%c") + ": Entering step 4")
-            current_log_index = len(processing_log) - 1
-            self.insert_sub_datapoints_into_parent_datapoint(0,1)
-            
-            #Step 5:
-            processing_log.append(time.strftime("%c") + ": Entering step 5")
-            indeces=0#Maybe 1 is correct, not sure
-            processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
-            task_identifier = get_task_id_from_task_list_index(indeces)
-            linked_datapoints = self._get_datapoint_list_at_identifier(task_identifier)
-            copied_datapoints = copy.deepcopy(linked_datapoints)
-            datapoint_list_1 = []
-            datapoint_list_1.append(copied_datapoints)
-            #Step 6 is skipped in this template
-            
-            #Step 7
-            processing_log.append(time.strftime("%c") + ": Entering step 7")
-            question = {"question_title": "name for directory",
-                            "question_text": "Please choose a working directory for output of list 1",
-                            "default_answer": "Temperatures",
-                            "optiontype": "free_text"}
-            directory_name = UserInput.ask_user_for_input(question)["answer"]
-            directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
-            file_handler_1 = FileHandler(directory_name)
-            for number, main_task in enumerate(datapoint_list_1):
-    
-                # We need to ask the user what he wants as the base name for the files. For this, we show the user the top level
-                #  descriptors that are available, eg "Sample Sensor"
-    
-                main_task_keys_without_subtasks = []
-                UserInput.post_status("-----------------------")
-                UserInput.post_status(
-                    "At task {0}, what do you want as the attribute used inside the file name?".format(number))
-                key_for_file_name = None
-                for key in main_task[0].keys():
-                    if key != "sub_task_datapoints":
-                        main_task_keys_without_subtasks.append(key)
-    
-                main_task_keys_without_subtasks.sort()
-    
-                # Now ask the user which of the keys's value he wants to see in the file name
-                for index, key in enumerate(main_task_keys_without_subtasks):
-                    UserInput.post_status(str(index) + ": " + key)
-    
-                question = {"question_title": "What attributes' values should be used to put in the file name?",
-                                "question_text": "Please only enter the 1 corresponding number",
-                                "default_answer": "0",
-                                "optiontype": "multi_indeces"}
-    
-                index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
-                key_for_file_name = main_task_keys_without_subtasks[index_chosen]
-    
-                keys_for_sub_task_datapoints = []
-                # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
-                for key in main_task[0]["sub_task_datapoints"][0].keys():
-                    keys_for_sub_task_datapoints.append(key)
-    
-                keys_for_sub_task_datapoints.sort(key=str.lower)
-                # File Header
-    
-                first_line = ""
-                for key in keys_for_sub_task_datapoints:
-                    first_line = first_line + str(key) + "\t"
-    
-                second_line = "Name: " + self.name
-                third_line = "Operator: " + self.experimenter + "\t"
-                fourth_line = "Created at: " + self.creation_time
-                fifth_line = "Comment: " + str(self.comment)
-                sixth_line = "Geometry: " + str(self.geometry)
-                seventh_line = "-------------------------------------------------------\n"
-                nineth_line = seventh_line
-                header_lines = [first_line, second_line, third_line, fourth_line, fifth_line, sixth_line, seventh_line]
-    
-    
-                # Now we access each datarow we have
-                for main_task_data_point in main_task:
-    
-                    processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
-    
-                    # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
-                    # own file
-                    file_name = "{0}_Task{1}_{2}_{3}".format(self.name, str(number), file_number_str,
-                                                             str(main_task_data_point[key_for_file_name]))
-    
-                    # We need to count up the file number and ready the str of it
-                    file_number += 1
-                    file_number_str = "%05d" % (
-                    file_number,)  # we want leading 0s in the name so file explorers sort them correctly
-    
-                    outputfile = file_handler_1.create_file(file_name)
-    
-                    # Write the header
-                    for line in header_lines:
-                        outputfile.write_string(line)
-    
-                    # Write main task datapoint data
-                    main_task_data_str = ""
-                    for key in main_task_keys_without_subtasks:
-                        main_task_data_str += "\t{0} {1}".format(str(key), str(main_task_data_point[key]))
-    
-                    outputfile.write_string(main_task_data_str)
-    
-                    outputfile.write_string(nineth_line)
-    
-                    # now gather every sub_task_datapoint (one line in the output file)
-                    for sub_task_datapoint in main_task_data_point["sub_task_datapoints"]:
-                        line_of_data = ""
-                        # then iterate over every key so we can generate the one line
-                        for key in keys_for_sub_task_datapoints:
-                            line_of_data += "{0}\t".format(sub_task_datapoint[key])
-                        outputfile.write_string(line_of_data)
-            
-            #Step 8 is skipped
-            
-            #Step 9:
-            processing_log.append(time.strftime("%c") + ": Entering step 9")
-    
-            # We need to print out the processing log, the modified database itself and the task list.
-            #TODO
-            processing_log.append(time.strftime("%c") + ": Starting pickling of processed database.")
-            self.pickle_database("_processed")
-            processing_log.append(time.strftime("%c") + ": Finished pickling.")
-    
-            processing_log.append(time.strftime("%c") + ": Starting file output for task list.")
-            filehandler_for_task_list = FileHandler(self.pickle_path)
-            task_list_file = filehandler_for_task_list.create_file("{0}_tasks".format(self.name))
-    
-            UserInput.post_status("Now reticulating splines. This could take some time.")
-            for task in self.tasks:
-                # Write all tasks into the buffer of the file
-                task_list_file.write_string(str(task))
-            # Now stop the file Handler
-            filehandler_for_task_list.start()
-            processing_log.append(time.strftime("%c") + ": Starting file output for first list.")
-            # when we call start, we make a new Thread for the file handler which itself handles one file after the other
-            file_handler_1.start()
-            file_handler_1.join()
-    
-            UserInput.post_status("Forgot some splines. Remedying that!")
-            UserInput.post_status("Waiting on task_list_output to finish")
-            filehandler_for_task_list.join()
-            UserInput.post_status("Now saving processing log.")
-            UserInput.post_status("I sincerely hope your time with JUMP was good!")
-            filehandler_for_log = FileHandler(self.pickle_path)
-            processing_log_file = filehandler_for_log.create_file("{0}_processing_log".format(self.name))
-            for entry in processing_log:
-                processing_log_file.write_string(str(entry))
-            filehandler_for_log.start()
-            filehandler_for_log.join()
-            UserInput.post_status("Closed the log file. Bye bye!")
+    def _get_input(self,custom,question,template=[]):
+        #TODO
+        """ 
+
+        Parameters
+        ----------
+        custom : Boolean
+            Decide wether to customize your measurement or use a template instead.
+        question :
+            Enter the posed question.
+        template : 
+            Enter a template, if custom=False.
+
+        Returns chosen task.
+        -------
+        Private function in order to implement template data export. A list with all input parameters
+        serves as template.
+        
+        """
+        if custom:
+            answer = UserInput.ask_user_for_input(question)
+            self.task_input.append(answer["answer"])
+            return answer
+        else:
+            return {'answer': template.pop(0)}
+        
     @property
     def tasks(self):
         return self.tasks_of_a_run
