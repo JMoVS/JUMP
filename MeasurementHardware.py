@@ -1489,6 +1489,11 @@ class NIMaxScreenshots(MeasurementDevice):
                         UserInput.post_status("Got bad screenshot, printing current parsed status, will take new one "
                                               "and try to carry on")
                         error_occured=True
+                    #Throws error, whenever the float looks like 'n.000000', since this is most likely a detection error
+                    if round(channel_value,6).is_integer():
+                        UserInput.post_status("Got bad screenshot, printing current parsed status, will take new one "
+                                              "and try to carry on")
+                        error_occured=True
                 #We managed to squeeze 8 values out of our screenshot
                 if not error_occured:
                     screenshot_sufficient = True
