@@ -134,6 +134,20 @@ class Database:
 
         """
 
+        UserInput.post_status("")
+        UserInput.post_status("-------------Choose template-------------")
+
+        UserInput.post_status("Choose whether you want to customize your post-processing, or want to use an existing"
+                              "template")
+        
+        question = {"question_title": "Choose template",
+                    "question_text": "Please choose a template",
+                    "default_answer": "Custom",
+                    "optiontype": "multi_choice",
+                    "valid_options": ["Custom","S001"]}
+        
+        chosen_template = UserInput.ask_user_for_input(question)["answer"]
+        
         post_processing_steps = ["1. Ask user whether he wants geometry based calculations and calculate all possible"
                                  " values",
                                  "2. Merge *all* <<same>> level datapoints/DataAcquisitions",
@@ -183,505 +197,376 @@ class Database:
             for item in identifier_str:
                 identifier.append(int(item))
             return identifier
+        
+        def setup_postprocessing():
+            pass
 
         # -------------------------------------------------------------------------------------------------------------
-        # Step 1: Ask user whether he wants geometry based calculations and calculate all possible values
-
-        print_following_steps(0)
-
-        UserInput.post_status("")
-        UserInput.post_status("-------------Step 1: Geometry-------------")
-
-        UserInput.post_status("You now have the chance to enter a geometry so all the possible quantities can be "
-                              "calculated for you")
-
-        question = {"question_title": "Sample geometry",
-                    "question_text": "You can enter the sample geometry in mm (Millimeter!), do you want that?",
-                    "default_answer": True,
-                    "optiontype": "yes_no"}
-
-        user_wants_geometry = UserInput.ask_user_for_input(question)["answer"]
-
-        if user_wants_geometry:
-            question = {"question_title": "Sample Thickness",
-                        "question_text": "Please enter the sample's thickness in mm. Valid values range from 0 to "
-                                         "9999999, maximum accuracy is capped at 0.0000001",
-                        "default_answer": 1.0,
-                        "optiontype": "free_choice",
-                        "valid_options_lower_limit": 0.0,
-                        "valid_options_upper_limit": 9999999,
-                        "valid_options_steplength": 1e7}
-
-            thickness = UserInput.ask_user_for_input(question)["answer"]
-
-            question = {"question_title": "Sample area",
-                        "question_text": "Please enter the sample's area in mm^2. Valid values range from 0 to 9999999,"
-                                         " maximum accuracy is capped at 0.0000001",
-                        "default_answer": 1.0,
-                        "optiontype": "free_choice",
-                        "valid_options_lower_limit": 0.0,
-                        "valid_options_upper_limit": 9999999,
-                        "valid_options_steplength": 1e7}
-
-            area = UserInput.ask_user_for_input(question)["answer"]
-            self.geometry = {"thickness": thickness,
-                             "area": area}
-
-            UserInput.post_status("Successfully gathered the geometry info. All values will be calculated. This can "
-                                  "take a moment.")
-
-            processing_log.append(time.strftime("%c") + ": User entered geometry. Starting value calculation.")
-            self.calculate_all_values(self.geometry)
-            processing_log.append(time.strftime("%c") + ": All values calculated.")
-
-        else:
-            UserInput.post_status("Values will be calculated without geometry input, but calculation could nevertheless"
-                                  " take a moment.")
-
-            processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
-            self.calculate_all_values()
-            self.geometry = {"Info": "no geometry given"}
-            processing_log.append(time.strftime("%c") + ": All values calculated.")
-
-        UserInput.post_status("All values are now calculated. Successfully finished step 1. New step is step 2.")
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 2: Merge *all* same level datapoints/DataAcquisitions
-
-        UserInput.post_status("####################################")
-        UserInput.post_status("-------------Step 2: Same level merge-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 2")
-
-        print_following_steps(1)
-        current_log_index = len(processing_log) - 1
-
-        UserInput.confirm_warning(
-            "Now please merge all same-level tasks. Same level means that all but the very last index"
-            " components may differ. For example: \n\n [0,0,0,0] and [0,0,0,1] can be merged. \n\n"
-            "!!! [0,0,0] and [0,0,0,0] can't be merged in this step because that's a level 3 and "
-            "a level 4 merge. \n"
-            "!!! [0,0,0,0] and [1,0,0,0] can't be merged because they differ on the first index "
-            "component. \n\n"
-            "This merging process will only be needed in rare cases where you for example recorded "
-            "both sample AND control temperature in DataAcquisitons or have additional sensors.")
-
-        step2_is_finished = False
-
-        while not step2_is_finished:
-            UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
-            UserInput.post_status("Processing log for step 2:")
-            print_current_processing_log(current_log_index)
-            UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
-
-            question = {"question_title": "Merge same level tasks",
-                        "question_text": "Do you want to merge (another) two tasks?",
-                        "default_answer": False,
-                        "optiontype": "yes_no"}
-
-            user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
-
-            if user_wants_new_merge:
-                print_task_list_with_indeces()
-                question = {"question_title": "Same-level-merge selection",
-                            "question_text": "Please enter the two indeces, (you will get two input prompts) for the "
-                                             "two which are to be merged. The result is that the second one is "
-                                             "<<integrated>> into the <<first>> one.",
-                            "default_answer": "0",
-                            "optiontype": "2_indeces"}
-                index_list = UserInput.ask_user_for_input(question)["answer"]
-
-                identifier1 = get_task_id_from_task_list_index(index_list[0])
-                identifier2 = get_task_id_from_task_list_index(index_list[1])
-
-                self.merge_same_level_datapoints(identifier1, identifier2)
-                processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
-                                      str(identifier1))
-            else:
-                step2_is_finished = True
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 3: Merge *all* different level datapoints/DataAcquisitions
-
-        UserInput.post_status("####################################")
-        UserInput.post_status("-------------Step 3: Different level merge-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 3")
-        # We are at step 3, which starting counting at 0 means we should print 2 going forward
-        print_following_steps(2)
-        current_log_index = len(processing_log) - 1
-
-        UserInput.confirm_warning(
-            "Now please merge all different-level tasks. Different level means that all compinents "
-            "of the identifier are the same, just the second one has one more component. This process"
-            " is almost always needed, if onyl to merge ParamController with DataAcquisitions")
-
-        step3_is_finished = False
-
-        while not step3_is_finished:
-            UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
-            UserInput.post_status("Processing log for step 3:")
-            print_current_processing_log(current_log_index)
-            UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
-
-            question = {"question_title": "Merge different level tasks",
-                        "question_text": "Do you want to merge (another) two tasks?",
-                        "default_answer": False,
-                        "optiontype": "yes_no"}
-
-            user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
-
-            if user_wants_new_merge:
-                print_task_list_with_indeces()
-                question = {"question_title": "Different-level-merge selection",
-                            "question_text": "Please enter the two indeces, (you will get two input prompts) for the "
-                                             "two which are to be merged. The result is that the second one is "
-                                             "<<integrated>> into the <<first>> one.",
-                            "default_answer": "0",
-                            "optiontype": "2_indeces"}
-                index_list = UserInput.ask_user_for_input(question)["answer"]
-
-                identifier1 = get_task_id_from_task_list_index(index_list[0])
-                identifier2 = get_task_id_from_task_list_index(index_list[1])
-
-                self.merge_diff_level_datapoints(identifier1, identifier2)
-                processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
-                                      str(identifier1))
-
-            else:
-                step3_is_finished = True
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 4: Integrate *all* multi-level connections (temperature+frequencies)
-
-        UserInput.post_status("####################################")
-        UserInput.post_status("-------------Step 4: Multi-level integration-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 4")
-
-        print_following_steps(3)
-        current_log_index = len(processing_log) - 1
-
-        UserInput.confirm_warning(
-            "Now please integrate the tasks. This usually means integrating already merged sub_tasks."
-            " (Same with merging, integrating means that tghe result will be in the first entered"
-            " one). In a classical dielectric measurement, you usually have 30 frequencies at every "
-            "temperature. This step integrate the 30 frequencies data into the temperature "
-            "datapoints. This is the reason that the first task must contain equal or less "
-            "datapoints than the second task.")
-
-        step4_is_finished = False
-
-        while not step4_is_finished:
-            UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
-            UserInput.post_status("Processing log for all steps:")
-            print_current_processing_log(0)
-            UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
-
-            question = {"question_title": "Integrate datarows",
-                        "question_text": "Do you want to integrate (another) two tasks?",
-                        "default_answer": False,
-                        "optiontype": "yes_no"}
-
-            user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
-
-            if user_wants_new_merge:
-                print_task_list_with_indeces()
-                question = {"question_title": "Same-level-merge selection",
-                            "question_text": "Please enter the two indeces, (you will get two input prompts) for the "
-                                             "two which are to be merged. The result is that the second one is "
-                                             "<<integrated>> into the <<first>> one.",
-                            "default_answer": "0",
-                            "optiontype": "2_indeces"}
-                index_list = UserInput.ask_user_for_input(question)["answer"]
-
-                identifier1 = get_task_id_from_task_list_index(index_list[0])
-                identifier2 = get_task_id_from_task_list_index(index_list[1])
-
-                self.insert_sub_datapoints_into_parent_datapoint(identifier1, identifier2)
-                processing_log.append(time.strftime("%c") + ": Integrated " + str(identifier2) + " into -> "
-                                      + str(identifier1))
-
-            else:
-                step4_is_finished = True
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 5: Specify first output list
-
-        UserInput.post_status("-------------Step 5: Tasks for first output file-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 5")
-
-        print_following_steps(4)
-        current_log_index = len(processing_log) - 1
-
-        datapoint_list_1 = []
-
-        UserInput.confirm_warning(
-            "Now, specify the first round of now massaged tasks that you want output from. This is"
-            "the first ouput round. As you can see, you can transpose the data as needed in step 6. "
-            "In step 8, you'll be able to configure how exactly they should be printed out into "
-            "the file.")
-        print_task_list_with_indeces()
-
-        question = {"question_title": "First output selection",
-                    "question_text": "Please enter one or more indeces separated only by a comma to be "
-                                     "selected for file-output",
-                    "default_answer": "0,4,8,12",
-                    "optiontype": "multi_indeces"}
-
-        indeces = UserInput.ask_user_for_input(question)["answer"]
-
-        processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
-
-        for index in indeces:
-            task_identifier = get_task_id_from_task_list_index(index)
-            linked_datapoints = self._get_datapoint_list_at_identifier(task_identifier)
-            copied_datapoints = copy.deepcopy(linked_datapoints)
-            datapoint_list_1.append(copied_datapoints)
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 6: If needed, transpose datapoints (temp-> freq) (automatically selected for output in second list)
-
-        UserInput.post_status("-------------Step 6: Optionally transpose datapoints-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 6")
-
-        user_wants_transposed = False
-
-        print_following_steps(5)
-        current_log_index = len(processing_log) - 1
-
-        datapoint_list_2 = []
-
-        UserInput.confirm_warning("This step is to make it easy to also get your data into files in the other "
-                                  "dependency. You essentially transpose the result matrix. In other terms, you are "
-                                  "able to output per frequency and not just per temperature.")
-
-        question = {"question_title": "Do you want transposed data?",
-                    "question_text": "In a sweep, you won't, in a regular measurementa, you almost surely will.",
-                    "default_answer": True,
-                    "optiontype": "yes_no"}
-
-        user_wants_transposed = UserInput.ask_user_for_input(question)["answer"]
-
-        if user_wants_transposed:
-
-            UserInput.post_status("Here comes a nice time saver! Beware!")
-            question = {"question_title": "Use tasks selected in step 5?",
-                        "question_text": "Usually/Always, you want just the tasks you merged, integrated and selected for "
-                                         "file output to also be transposed so you get the temperature dependency as well. "
-                                         "If you select yes, the previously selected tasks will be the ones for output "
-                                         "here.",
+        
+       
+        if chosen_template=="Custom":
+            # Step 1: Ask user whether he wants geometry based calculations and calculate all possible values
+    
+            print_following_steps(0)
+    
+            UserInput.post_status("")
+            UserInput.post_status("-------------Step 1: Geometry-------------")
+    
+            UserInput.post_status("You now have the chance to enter a geometry so all the possible quantities can be "
+                                  "calculated for you")
+    
+            question = {"question_title": "Sample geometry",
+                        "question_text": "You can enter the sample geometry in mm (Millimeter!), do you want that?",
                         "default_answer": True,
                         "optiontype": "yes_no"}
-
-            user_wants_tasks_from_step5 = UserInput.ask_user_for_input(question)["answer"]
-
-            if user_wants_tasks_from_step5:
-                processing_log.append(time.strftime("%c") + ": Selected same tasks as in step 5 for file output 2.")
-
-            elif not user_wants_tasks_from_step5:
-
-                question = {"question_title": "Second output selection",
-                            "question_text": "Please enter one or more indeces separated only by a comma to be "
-                                             "selected for file-output. Everything you select is automatically "
-                                             "selected for 2nd file output.",
-                            "default_answer": "0,4,8,12",
-                            "optiontype": "multi_indeces"}
-
-                indeces = UserInput.ask_user_for_input(question)["answer"]
-
-                processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) +
-                                      " for output 2")
-
-            # Add the datapoints to the output list 2
+    
+            user_wants_geometry = UserInput.ask_user_for_input(question)["answer"]
+    
+            if user_wants_geometry:
+                question = {"question_title": "Sample Thickness",
+                            "question_text": "Please enter the sample's thickness in mm. Valid values range from 0 to "
+                                             "9999999, maximum accuracy is capped at 0.0000001",
+                            "default_answer": 1.0,
+                            "optiontype": "free_choice",
+                            "valid_options_lower_limit": 0.0,
+                            "valid_options_upper_limit": 9999999,
+                            "valid_options_steplength": 1e7}
+    
+                thickness = UserInput.ask_user_for_input(question)["answer"]
+    
+                question = {"question_title": "Sample area",
+                            "question_text": "Please enter the sample's area in mm^2. Valid values range from 0 to 9999999,"
+                                             " maximum accuracy is capped at 0.0000001",
+                            "default_answer": 1.0,
+                            "optiontype": "free_choice",
+                            "valid_options_lower_limit": 0.0,
+                            "valid_options_upper_limit": 9999999,
+                            "valid_options_steplength": 1e7}
+    
+                area = UserInput.ask_user_for_input(question)["answer"]
+                self.geometry = {"thickness": thickness,
+                                 "area": area}
+    
+                UserInput.post_status("Successfully gathered the geometry info. All values will be calculated. This can "
+                                      "take a moment.")
+    
+                processing_log.append(time.strftime("%c") + ": User entered geometry. Starting value calculation.")
+                self.calculate_all_values(self.geometry)
+                processing_log.append(time.strftime("%c") + ": All values calculated.")
+    
+            else:
+                UserInput.post_status("Values will be calculated without geometry input, but calculation could nevertheless"
+                                      " take a moment.")
+    
+                processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
+                self.calculate_all_values()
+                self.geometry = {"Info": "no geometry given"}
+                processing_log.append(time.strftime("%c") + ": All values calculated.")
+    
+            UserInput.post_status("All values are now calculated. Successfully finished step 1. New step is step 2.")
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 2: Merge *all* same level datapoints/DataAcquisitions
+   
+            UserInput.post_status("####################################")
+            UserInput.post_status("-------------Step 2: Same level merge-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 2")
+    
+            print_following_steps(1)
+            current_log_index = len(processing_log) - 1
+    
+            UserInput.confirm_warning(
+                "Now please merge all same-level tasks. Same level means that all but the very last index"
+                " components may differ. For example: \n\n [0,0,0,0] and [0,0,0,1] can be merged. \n\n"
+                "!!! [0,0,0] and [0,0,0,0] can't be merged in this step because that's a level 3 and "
+                "a level 4 merge. \n"
+                "!!! [0,0,0,0] and [1,0,0,0] can't be merged because they differ on the first index "
+                "component. \n\n"
+                "This merging process will only be needed in rare cases where you for example recorded "
+                "both sample AND control temperature in DataAcquisitons or have additional sensors.")
+    
+            step2_is_finished = False
+    
+            while not step2_is_finished:
+                UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
+                UserInput.post_status("Processing log for step 2:")
+                print_current_processing_log(current_log_index)
+                UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
+    
+                question = {"question_title": "Merge same level tasks",
+                            "question_text": "Do you want to merge (another) two tasks?",
+                            "default_answer": False,
+                            "optiontype": "yes_no"}
+    
+                user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
+    
+                if user_wants_new_merge:
+                    print_task_list_with_indeces()
+                    question = {"question_title": "Same-level-merge selection",
+                                "question_text": "Please enter the two indeces, (you will get two input prompts) for the "
+                                                 "two which are to be merged. The result is that the second one is "
+                                                 "<<integrated>> into the <<first>> one.",
+                                "default_answer": "0",
+                                "optiontype": "2_indeces"}
+                    index_list = UserInput.ask_user_for_input(question)["answer"]
+    
+                    identifier1 = get_task_id_from_task_list_index(index_list[0])
+                    identifier2 = get_task_id_from_task_list_index(index_list[1])
+    
+                    self.merge_same_level_datapoints(identifier1, identifier2)
+                    processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
+                                          str(identifier1))
+                else:
+                    step2_is_finished = True
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 3: Merge *all* different level datapoints/DataAcquisitions
+            UserInput.post_status("####################################")
+            UserInput.post_status("-------------Step 3: Different level merge-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 3")
+            # We are at step 3, which starting counting at 0 means we should print 2 going forward
+            print_following_steps(2)
+            current_log_index = len(processing_log) - 1
+    
+            UserInput.confirm_warning(
+                "Now please merge all different-level tasks. Different level means that all compinents "
+                "of the identifier are the same, just the second one has one more component. This process"
+                " is almost always needed, if onyl to merge ParamController with DataAcquisitions")
+    
+            step3_is_finished = False
+    
+            while not step3_is_finished:
+                UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
+                UserInput.post_status("Processing log for step 3:")
+                print_current_processing_log(current_log_index)
+                UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
+    
+                question = {"question_title": "Merge different level tasks",
+                            "question_text": "Do you want to merge (another) two tasks?",
+                            "default_answer": False,
+                            "optiontype": "yes_no"}
+    
+                user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
+    
+                if user_wants_new_merge:
+                    print_task_list_with_indeces()
+                    question = {"question_title": "Different-level-merge selection",
+                                "question_text": "Please enter the two indeces, (you will get two input prompts) for the "
+                                                 "two which are to be merged. The result is that the second one is "
+                                                 "<<integrated>> into the <<first>> one.",
+                                "default_answer": "0",
+                                "optiontype": "2_indeces"}
+                    index_list = UserInput.ask_user_for_input(question)["answer"]
+    
+                    identifier1 = get_task_id_from_task_list_index(index_list[0])
+                    identifier2 = get_task_id_from_task_list_index(index_list[1])
+    
+                    self.merge_diff_level_datapoints(identifier1, identifier2)
+                    processing_log.append(time.strftime("%c") + ": Merged " + str(identifier2) + " into -> " +
+                                          str(identifier1))
+    
+                else:
+                    step3_is_finished = True
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 4: Integrate *all* multi-level connections (temperature+frequencies)
+    
+            UserInput.post_status("####################################")
+            UserInput.post_status("-------------Step 4: Multi-level integration-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 4")
+    
+            print_following_steps(3)
+            current_log_index = len(processing_log) - 1
+    
+            UserInput.confirm_warning(
+                "Now please integrate the tasks. This usually means integrating already merged sub_tasks."
+                " (Same with merging, integrating means that tghe result will be in the first entered"
+                " one). In a classical dielectric measurement, you usually have 30 frequencies at every "
+                "temperature. This step integrate the 30 frequencies data into the temperature "
+                "datapoints. This is the reason that the first task must contain equal or less "
+                "datapoints than the second task.")
+    
+            step4_is_finished = False
+    
+            while not step4_is_finished:
+                UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
+                UserInput.post_status("Processing log for all steps:")
+                print_current_processing_log(0)
+                UserInput.post_status("°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°")
+    
+                question = {"question_title": "Integrate datarows",
+                            "question_text": "Do you want to integrate (another) two tasks?",
+                            "default_answer": False,
+                            "optiontype": "yes_no"}
+    
+                user_wants_new_merge = UserInput.ask_user_for_input(question)["answer"]
+    
+                if user_wants_new_merge:
+                    print_task_list_with_indeces()
+                    question = {"question_title": "Same-level-merge selection",
+                                "question_text": "Please enter the two indeces, (you will get two input prompts) for the "
+                                                 "two which are to be merged. The result is that the second one is "
+                                                 "<<integrated>> into the <<first>> one.",
+                                "default_answer": "0",
+                                "optiontype": "2_indeces"}
+                    index_list = UserInput.ask_user_for_input(question)["answer"]
+    
+                    identifier1 = get_task_id_from_task_list_index(index_list[0])
+                    identifier2 = get_task_id_from_task_list_index(index_list[1])
+    
+                    self.insert_sub_datapoints_into_parent_datapoint(identifier1, identifier2)
+                    processing_log.append(time.strftime("%c") + ": Integrated " + str(identifier2) + " into -> "
+                                          + str(identifier1))
+    
+                else:
+                    step4_is_finished = True
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 5: Specify first output list
+    
+            UserInput.post_status("-------------Step 5: Tasks for first output file-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 5")
+    
+            print_following_steps(4)
+            current_log_index = len(processing_log) - 1
+    
+            datapoint_list_1 = []
+    
+            UserInput.confirm_warning(
+                "Now, specify the first round of now massaged tasks that you want output from. This is"
+                "the first ouput round. As you can see, you can transpose the data as needed in step 6. "
+                "In step 8, you'll be able to configure how exactly they should be printed out into "
+                "the file.")
+            print_task_list_with_indeces()
+    
+            question = {"question_title": "First output selection",
+                        "question_text": "Please enter one or more indeces separated only by a comma to be "
+                                         "selected for file-output",
+                        "default_answer": "0,4,8,12",
+                        "optiontype": "multi_indeces"}
+    
+            indeces = UserInput.ask_user_for_input(question)["answer"]
+    
+            processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
+    
             for index in indeces:
                 task_identifier = get_task_id_from_task_list_index(index)
-                datapoint_list_2.append(self.get_transposed_parent_child_datapoints(task_identifier))
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 7: Define file naming, header and columns for first list
-        UserInput.post_status("####################################")
-        UserInput.post_status("-------------1st OutputFile: Define file naming, header-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 7")
-
-        print_following_steps(6)
-        current_log_index = len(processing_log) - 1
-
-        directory_name = ""
-
-        UserInput.confirm_warning("Now to the easier of the two lists. The first one is usually the one where you"
-                                  "create one file per temperature.")
-
-        question = {"question_title": "Directory name",
-                    "question_text": "Usually you want the directory named \"Temperatures\", do you want to use the "
-                                     "default?",
-                    "default_answer": True,
-                    "optiontype": "yes_no"}
-        user_is_fine_with_temperatures = UserInput.ask_user_for_input(question)["answer"]
-        if user_is_fine_with_temperatures:
-            directory_name = os.path.join(self.pickle_path, "Temperatures{0}".format(os.sep))
-
-        elif not user_is_fine_with_temperatures:
-            question = {"question_title": "name for directory",
-                        "question_text": "Please choose a working directory for output of list 1",
-                        "default_answer": "Temperatures",
-                        "optiontype": "free_text"}
-
-            directory_name = UserInput.ask_user_for_input(question)["answer"]
-            directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
-
-        file_handler_1 = FileHandler(directory_name)
-
-        file_number = 1
-        file_number_str = "%05d" % (file_number,)  # we want leading 0s in the file name so file explorers sort them
-        # correctly
-
-        # Now iterate over all main tasks in the list:
-
-        for number, main_task in enumerate(datapoint_list_1):
-
-            # We need to ask the user what he wants as the base name for the files. For this, we show the user the top level
-            #  descriptors that are available, eg "Sample Sensor"
-
-            main_task_keys_without_subtasks = []
-            UserInput.post_status("-----------------------")
-            UserInput.post_status(
-                "At task {0}, what do you want as the attribute used inside the file name?".format(number))
-            key_for_file_name = None
-            for key in main_task[0].keys():
-                if key != "sub_task_datapoints":
-                    main_task_keys_without_subtasks.append(key)
-
-            main_task_keys_without_subtasks.sort()
-
-            # Now ask the user which of the keys's value he wants to see in the file name
-            for index, key in enumerate(main_task_keys_without_subtasks):
-                UserInput.post_status(str(index) + ": " + key)
-
-            question = {"question_title": "What attributes' values should be used to put in the file name?",
-                            "question_text": "Please only enter the 1 corresponding number",
-                            "default_answer": "0",
-                            "optiontype": "multi_indeces"}
-
-            index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
-            key_for_file_name = main_task_keys_without_subtasks[index_chosen]
-
-            keys_for_sub_task_datapoints = []
-            # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
-            for key in main_task[0]["sub_task_datapoints"][0].keys():
-                keys_for_sub_task_datapoints.append(key)
-
-            keys_for_sub_task_datapoints.sort(key=str.lower)
-            # File Header
-
-            first_line = ""
-            for key in keys_for_sub_task_datapoints:
-                first_line = first_line + str(key) + "\t"
-
-            second_line = "Name: " + self.name
-            third_line = "Operator: " + self.experimenter + "\t"
-            fourth_line = "Created at: " + self.creation_time
-            fifth_line = "Comment: " + str(self.comment)
-            sixth_line = "Geometry: " + str(self.geometry)
-            seventh_line = "-------------------------------------------------------\n"
-            nineth_line = seventh_line
-            header_lines = [first_line, second_line, third_line, fourth_line, fifth_line, sixth_line, seventh_line]
-
-
-            # Now we access each datarow we have
-            for main_task_data_point in main_task:
-
-                processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
-
-                # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
-                # own file
-                file_name = "{0}_Task{1}_{2}_{3}".format(self.name, str(number), file_number_str,
-                                                         str(main_task_data_point[key_for_file_name]))
-
-                # We need to count up the file number and ready the str of it
-                file_number += 1
-                file_number_str = "%05d" % (
-                file_number,)  # we want leading 0s in the name so file explorers sort them correctly
-
-                outputfile = file_handler_1.create_file(file_name)
-
-                # Write the header
-                for line in header_lines:
-                    outputfile.write_string(line)
-
-                # Write main task datapoint data
-                main_task_data_str = ""
-                for key in main_task_keys_without_subtasks:
-                    main_task_data_str += "\t{0} {1}".format(str(key), str(main_task_data_point[key]))
-
-                outputfile.write_string(main_task_data_str)
-
-                outputfile.write_string(nineth_line)
-
-                # now gather every sub_task_datapoint (one line in the output file)
-                for sub_task_datapoint in main_task_data_point["sub_task_datapoints"]:
-                    line_of_data = ""
-                    # then iterate over every key so we can generate the one line
-                    for key in keys_for_sub_task_datapoints:
-                        line_of_data += "{0}\t".format(sub_task_datapoint[key])
-                    outputfile.write_string(line_of_data)
-
-        UserInput.post_status("Export is in progress. You should shortly see the files appearing.")
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 8: Define file naming, header and columns for second list
-
-        if user_wants_transposed:
-            UserInput.post_status("####################################")
-            UserInput.post_status("-------------2nd OutputFile: Define file naming, header and columns-------------")
-
-            processing_log.append(time.strftime("%c") + ": Entering step 8")
-
-            print_following_steps(7)
+                linked_datapoints = self._get_datapoint_list_at_identifier(task_identifier)
+                copied_datapoints = copy.deepcopy(linked_datapoints)
+                datapoint_list_1.append(copied_datapoints)
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 6: If needed, transpose datapoints (temp-> freq) (automatically selected for output in second list)
+    
+            UserInput.post_status("-------------Step 6: Optionally transpose datapoints-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 6")
+    
+            user_wants_transposed = False
+    
+            print_following_steps(5)
             current_log_index = len(processing_log) - 1
-
+    
+            datapoint_list_2 = []
+    
+            UserInput.confirm_warning("This step is to make it easy to also get your data into files in the other "
+                                      "dependency. You essentially transpose the result matrix. In other terms, you are "
+                                      "able to output per frequency and not just per temperature.")
+    
+            question = {"question_title": "Do you want transposed data?",
+                        "question_text": "In a sweep, you won't, in a regular measurementa, you almost surely will.",
+                        "default_answer": True,
+                        "optiontype": "yes_no"}
+    
+            user_wants_transposed = UserInput.ask_user_for_input(question)["answer"]
+    
+            if user_wants_transposed:
+    
+                UserInput.post_status("Here comes a nice time saver! Beware!")
+                question = {"question_title": "Use tasks selected in step 5?",
+                            "question_text": "Usually/Always, you want just the tasks you merged, integrated and selected for "
+                                             "file output to also be transposed so you get the temperature dependency as well. "
+                                             "If you select yes, the previously selected tasks will be the ones for output "
+                                             "here.",
+                            "default_answer": True,
+                            "optiontype": "yes_no"}
+    
+                user_wants_tasks_from_step5 = UserInput.ask_user_for_input(question)["answer"]
+    
+                if user_wants_tasks_from_step5:
+                    processing_log.append(time.strftime("%c") + ": Selected same tasks as in step 5 for file output 2.")
+    
+                elif not user_wants_tasks_from_step5:
+    
+                    question = {"question_title": "Second output selection",
+                                "question_text": "Please enter one or more indeces separated only by a comma to be "
+                                                 "selected for file-output. Everything you select is automatically "
+                                                 "selected for 2nd file output.",
+                                "default_answer": "0,4,8,12",
+                                "optiontype": "multi_indeces"}
+    
+                    indeces = UserInput.ask_user_for_input(question)["answer"]
+    
+                    processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) +
+                                          " for output 2")
+    
+                # Add the datapoints to the output list 2
+                for index in indeces:
+                    task_identifier = get_task_id_from_task_list_index(index)
+                    datapoint_list_2.append(self.get_transposed_parent_child_datapoints(task_identifier))
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 7: Define file naming, header and columns for first list
+            UserInput.post_status("####################################")
+            UserInput.post_status("-------------1st OutputFile: Define file naming, header-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 7")
+    
+            print_following_steps(6)
+            current_log_index = len(processing_log) - 1
+    
             directory_name = ""
-
-            UserInput.confirm_warning("Now to the hard part. The second list. This is the list containing your transposed "
-                                      "entries, so in Dielectrics parlance, the frequency files.")
-
+    
+            UserInput.confirm_warning("Now to the easier of the two lists. The first one is usually the one where you"
+                                      "create one file per temperature.")
+    
             question = {"question_title": "Directory name",
-                        "question_text": "Usually you want the directory named \"Frequencies\", do you want to use the "
+                        "question_text": "Usually you want the directory named \"Temperatures\", do you want to use the "
                                          "default?",
                         "default_answer": True,
                         "optiontype": "yes_no"}
             user_is_fine_with_temperatures = UserInput.ask_user_for_input(question)["answer"]
             if user_is_fine_with_temperatures:
-                directory_name = os.path.join(self.pickle_path, "Frequencies{0}".format(os.sep))
-
+                directory_name = os.path.join(self.pickle_path, "Temperatures{0}".format(os.sep))
+    
             elif not user_is_fine_with_temperatures:
                 question = {"question_title": "name for directory",
-                            "question_text": "Please choose a working directory for output of the list containing your "
-                                             "transposed task data",
-                            "default_answer": "Frequencies",
+                            "question_text": "Please choose a working directory for output of list 1",
+                            "default_answer": "Temperatures",
                             "optiontype": "free_text"}
-
+    
                 directory_name = UserInput.ask_user_for_input(question)["answer"]
                 directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
-
-            file_handler_2 = FileHandler(directory_name)
-            # File Number for list 2 is 0 at the beginning of course
+    
+            file_handler_1 = FileHandler(directory_name)
+    
             file_number = 1
             file_number_str = "%05d" % (file_number,)  # we want leading 0s in the file name so file explorers sort them
             # correctly
-
+            #TODO Implement following part into S001 export option
+    
             # Now iterate over all main tasks in the list:
-
-            for number, main_task in enumerate(datapoint_list_2):
-
+    
+            for number, main_task in enumerate(datapoint_list_1):
+    
                 # We need to ask the user what he wants as the base name for the files. For this, we show the user the top level
                 #  descriptors that are available, eg "Sample Sensor"
-
+    
                 main_task_keys_without_subtasks = []
-
                 UserInput.post_status("-----------------------")
                 UserInput.post_status(
                     "At task {0}, what do you want as the attribute used inside the file name?".format(number))
@@ -689,97 +574,73 @@ class Database:
                 for key in main_task[0].keys():
                     if key != "sub_task_datapoints":
                         main_task_keys_without_subtasks.append(key)
-
+    
                 main_task_keys_without_subtasks.sort()
-
+    
                 # Now ask the user which of the keys's value he wants to see in the file name
                 for index, key in enumerate(main_task_keys_without_subtasks):
                     UserInput.post_status(str(index) + ": " + key)
-
-                question = {"question_title": "File name",
-                                "question_text": "What attributes' values should be used to put in the file name? Please "
-                                                 "only enter the 1 corresponding number",
+    
+                question = {"question_title": "What attributes' values should be used to put in the file name?",
+                                "question_text": "Please only enter the 1 corresponding number",
                                 "default_answer": "0",
                                 "optiontype": "multi_indeces"}
-
+    
                 index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
                 key_for_file_name = main_task_keys_without_subtasks[index_chosen]
-
+    
                 keys_for_sub_task_datapoints = []
                 # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
                 for key in main_task[0]["sub_task_datapoints"][0].keys():
-                    # In the transposed case, we will have another set of sub_tasks that we don't want
-                    if key != "sub_task_datapoints":
-                        keys_for_sub_task_datapoints.append(key)
-
+                    keys_for_sub_task_datapoints.append(key)
+    
                 keys_for_sub_task_datapoints.sort(key=str.lower)
                 # File Header
-
+    
                 first_line = ""
                 for key in keys_for_sub_task_datapoints:
                     first_line = first_line + str(key) + "\t"
-
+    
                 second_line = "Name: " + self.name
-                third_line = self.experimenter + "\t"
+                third_line = "Operator: " + self.experimenter + "\t"
                 fourth_line = "Created at: " + self.creation_time
                 fifth_line = "Comment: " + str(self.comment)
                 sixth_line = "Geometry: " + str(self.geometry)
                 seventh_line = "-------------------------------------------------------\n"
                 nineth_line = seventh_line
                 header_lines = [first_line, second_line, third_line, fourth_line, fifth_line, sixth_line, seventh_line]
-
-                # We want to ask the user what is the controlled bit of the transposed task data. In Dielectrics, this
-                # usually is the applied frequency or frequency.
-
-                for index, key in enumerate(main_task_keys_without_subtasks):
-                    UserInput.post_status(str(index) + ": " + key)
-
-                question = {"question_title": "Attributes for file header",
-                            "question_text": "Enter the numbers corresponding to the constants in the task. We are "
-                                             "working with transposed data, so this usually means that you want to "
-                                             "select frequency and maybe applied_frequency as keys. Those 2 should "
-                                             "suffice for the header. The numbers should only be separated by a comma.",
-                            "default_answer": "0,3",
-                            "optiontype": "multi_indeces"}
-
-                indeces_chosen = UserInput.ask_user_for_input(question)["answer"]
-
-                keys_for_file_header2 = []
-                for index in indeces_chosen:
-                    keys_for_file_header2.append(main_task_keys_without_subtasks[index])
-
-                keys_for_file_header2.sort()
-
+    
+    
                 # Now we access each datarow we have
                 for main_task_data_point in main_task:
-
+    
                     processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
-
+    
                     # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
                     # own file
                     file_name = "{0}_Task{1}_{2}_{3}".format(self.name, str(number), file_number_str,
                                                              str(main_task_data_point[key_for_file_name]))
-
+    
                     # We need to count up the file number and ready the str of it
                     file_number += 1
-                    file_number_str = "%05d" % (file_number,)  # we want leading 0s in the name so file explorers sort
-                    # them correctly
-
-                    outputfile = file_handler_2.create_file(file_name)
-
+                    file_number_str = "%05d" % (
+                    file_number,)  # we want leading 0s in the name so file explorers sort them correctly
+    
+                    outputfile = file_handler_1.create_file(file_name)
+    
                     # Write the header
                     for line in header_lines:
                         outputfile.write_string(line)
-
-                    # Write main task datapoint data (in this case modified for only needed keys
+    
+                    # Write main task datapoint data
                     main_task_data_str = ""
-                    for key in keys_for_file_header2:
+                    for key in main_task_keys_without_subtasks:
                         main_task_data_str += "\t{0} {1}".format(str(key), str(main_task_data_point[key]))
-
+    
                     outputfile.write_string(main_task_data_str)
-
+    
                     outputfile.write_string(nineth_line)
-
+    
                     # now gather every sub_task_datapoint (one line in the output file)
                     for sub_task_datapoint in main_task_data_point["sub_task_datapoints"]:
                         line_of_data = ""
@@ -787,66 +648,397 @@ class Database:
                         for key in keys_for_sub_task_datapoints:
                             line_of_data += "{0}\t".format(sub_task_datapoint[key])
                         outputfile.write_string(line_of_data)
-
+    
             UserInput.post_status("Export is in progress. You should shortly see the files appearing.")
-
-        # -------------------------------------------------------------------------------------------------------------
-        # Step 9: Start File Outpout - this involves the output of the processing log as well as the task list and
-        # closing all files
-
-        UserInput.post_status("####################################")
-        UserInput.post_status("-------------Making files-------------")
-
-        processing_log.append(time.strftime("%c") + ": Entering step 9")
-
-        print_following_steps(8)
-        current_log_index = len(processing_log) - 1
-
-        # We need to print out the processing log, the modified database itself and the task list.
-
-        UserInput.post_status("Now Pickling the modified database. This could take some time!")
-        processing_log.append(time.strftime("%c") + ": Starting pickling of processed database.")
-        self.pickle_database("_processed")
-        processing_log.append(time.strftime("%c") + ": Finished pickling.")
-
-        processing_log.append(time.strftime("%c") + ": Starting file output for task list.")
-        filehandler_for_task_list = FileHandler(self.pickle_path)
-        task_list_file = filehandler_for_task_list.create_file("{0}_tasks".format(self.name))
-
-        UserInput.post_status("Now reticulating splines. This could take some time.")
-        for task in self.tasks:
-            # Write all tasks into the buffer of the file
-            task_list_file.write_string(str(task))
-        # Now stop the file Handler
-        filehandler_for_task_list.start()
-        processing_log.append(time.strftime("%c") + ": Starting file output for first list.")
-        # when we call start, we make a new Thread for the file handler which itself handles one file after the other
-        file_handler_1.start()
-        if user_wants_transposed:
-            processing_log.append(time.strftime("%c") + ": Starting file output for second list.")
-            file_handler_2.start()
-
-        UserInput.post_status("Waiting on output1 to finish")
-        file_handler_1.join()
-
-        UserInput.post_status("Forgot some splines. Remedying that!")
-        if user_wants_transposed:
-            UserInput.post_status("Waiting on output2 to finish")
-            # We can only wait on it if the user requested it and wants it
-            file_handler_2.join()
-
-        UserInput.post_status("Waiting on task_list_output to finish")
-        filehandler_for_task_list.join()
-        UserInput.post_status("Now saving processing log.")
-        UserInput.post_status("I sincerely hope your time with JUMP was good!")
-        filehandler_for_log = FileHandler(self.pickle_path)
-        processing_log_file = filehandler_for_log.create_file("{0}_processing_log".format(self.name))
-        for entry in processing_log:
-            processing_log_file.write_string(str(entry))
-        filehandler_for_log.start()
-        filehandler_for_log.join()
-        UserInput.post_status("Closed the log file. Bye bye!")
-
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 8: Define file naming, header and columns for second list
+    
+            if user_wants_transposed:
+                UserInput.post_status("####################################")
+                UserInput.post_status("-------------2nd OutputFile: Define file naming, header and columns-------------")
+    
+                processing_log.append(time.strftime("%c") + ": Entering step 8")
+    
+                print_following_steps(7)
+                current_log_index = len(processing_log) - 1
+    
+                directory_name = ""
+    
+                UserInput.confirm_warning("Now to the hard part. The second list. This is the list containing your transposed "
+                                          "entries, so in Dielectrics parlance, the frequency files.")
+    
+                question = {"question_title": "Directory name",
+                            "question_text": "Usually you want the directory named \"Frequencies\", do you want to use the "
+                                             "default?",
+                            "default_answer": True,
+                            "optiontype": "yes_no"}
+                user_is_fine_with_temperatures = UserInput.ask_user_for_input(question)["answer"]
+                if user_is_fine_with_temperatures:
+                    directory_name = os.path.join(self.pickle_path, "Frequencies{0}".format(os.sep))
+    
+                elif not user_is_fine_with_temperatures:
+                    question = {"question_title": "name for directory",
+                                "question_text": "Please choose a working directory for output of the list containing your "
+                                                 "transposed task data",
+                                "default_answer": "Frequencies",
+                                "optiontype": "free_text"}
+    
+                    directory_name = UserInput.ask_user_for_input(question)["answer"]
+                    directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
+    
+                file_handler_2 = FileHandler(directory_name)
+                # File Number for list 2 is 0 at the beginning of course
+                file_number = 1
+                file_number_str = "%05d" % (file_number,)  # we want leading 0s in the file name so file explorers sort them
+                # correctly
+    
+                # Now iterate over all main tasks in the list:
+    
+                for number, main_task in enumerate(datapoint_list_2):
+    
+                    # We need to ask the user what he wants as the base name for the files. For this, we show the user the top level
+                    #  descriptors that are available, eg "Sample Sensor"
+    
+                    main_task_keys_without_subtasks = []
+    
+                    UserInput.post_status("-----------------------")
+                    UserInput.post_status(
+                        "At task {0}, what do you want as the attribute used inside the file name?".format(number))
+                    key_for_file_name = None
+                    for key in main_task[0].keys():
+                        if key != "sub_task_datapoints":
+                            main_task_keys_without_subtasks.append(key)
+    
+                    main_task_keys_without_subtasks.sort()
+    
+                    # Now ask the user which of the keys's value he wants to see in the file name
+                    for index, key in enumerate(main_task_keys_without_subtasks):
+                        UserInput.post_status(str(index) + ": " + key)
+    
+                    question = {"question_title": "File name",
+                                    "question_text": "What attributes' values should be used to put in the file name? Please "
+                                                     "only enter the 1 corresponding number",
+                                    "default_answer": "0",
+                                    "optiontype": "multi_indeces"}
+    
+                    index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
+                    key_for_file_name = main_task_keys_without_subtasks[index_chosen]
+    
+                    keys_for_sub_task_datapoints = []
+                    # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
+                    for key in main_task[0]["sub_task_datapoints"][0].keys():
+                        # In the transposed case, we will have another set of sub_tasks that we don't want
+                        if key != "sub_task_datapoints":
+                            keys_for_sub_task_datapoints.append(key)
+    
+                    keys_for_sub_task_datapoints.sort(key=str.lower)
+                    # File Header
+    
+                    first_line = ""
+                    for key in keys_for_sub_task_datapoints:
+                        first_line = first_line + str(key) + "\t"
+    
+                    second_line = "Name: " + self.name
+                    third_line = self.experimenter + "\t"
+                    fourth_line = "Created at: " + self.creation_time
+                    fifth_line = "Comment: " + str(self.comment)
+                    sixth_line = "Geometry: " + str(self.geometry)
+                    seventh_line = "-------------------------------------------------------\n"
+                    nineth_line = seventh_line
+                    header_lines = [first_line, second_line, third_line, fourth_line, fifth_line, sixth_line, seventh_line]
+    
+                    # We want to ask the user what is the controlled bit of the transposed task data. In Dielectrics, this
+                    # usually is the applied frequency or frequency.
+    
+                    for index, key in enumerate(main_task_keys_without_subtasks):
+                        UserInput.post_status(str(index) + ": " + key)
+    
+                    question = {"question_title": "Attributes for file header",
+                                "question_text": "Enter the numbers corresponding to the constants in the task. We are "
+                                                 "working with transposed data, so this usually means that you want to "
+                                                 "select frequency and maybe applied_frequency as keys. Those 2 should "
+                                                 "suffice for the header. The numbers should only be separated by a comma.",
+                                "default_answer": "0,3",
+                                "optiontype": "multi_indeces"}
+    
+                    indeces_chosen = UserInput.ask_user_for_input(question)["answer"]
+    
+                    keys_for_file_header2 = []
+                    for index in indeces_chosen:
+                        keys_for_file_header2.append(main_task_keys_without_subtasks[index])
+    
+                    keys_for_file_header2.sort()
+    
+                    # Now we access each datarow we have
+                    for main_task_data_point in main_task:
+    
+                        processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
+    
+                        # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
+                        # own file
+                        file_name = "{0}_Task{1}_{2}_{3}".format(self.name, str(number), file_number_str,
+                                                                 str(main_task_data_point[key_for_file_name]))
+    
+                        # We need to count up the file number and ready the str of it
+                        file_number += 1
+                        file_number_str = "%05d" % (file_number,)  # we want leading 0s in the name so file explorers sort
+                        # them correctly
+    
+                        outputfile = file_handler_2.create_file(file_name)
+    
+                        # Write the header
+                        for line in header_lines:
+                            outputfile.write_string(line)
+    
+                        # Write main task datapoint data (in this case modified for only needed keys
+                        main_task_data_str = ""
+                        for key in keys_for_file_header2:
+                            main_task_data_str += "\t{0} {1}".format(str(key), str(main_task_data_point[key]))
+    
+                        outputfile.write_string(main_task_data_str)
+    
+                        outputfile.write_string(nineth_line)
+    
+                        # now gather every sub_task_datapoint (one line in the output file)
+                        for sub_task_datapoint in main_task_data_point["sub_task_datapoints"]:
+                            line_of_data = ""
+                            # then iterate over every key so we can generate the one line
+                            for key in keys_for_sub_task_datapoints:
+                                line_of_data += "{0}\t".format(sub_task_datapoint[key])
+                            outputfile.write_string(line_of_data)
+    
+                UserInput.post_status("Export is in progress. You should shortly see the files appearing.")
+    
+            # -------------------------------------------------------------------------------------------------------------
+            # Step 9: Start File Output - this involves the output of the processing log as well as the task list and
+            # closing all files
+    
+            UserInput.post_status("####################################")
+            UserInput.post_status("-------------Making files-------------")
+    
+            processing_log.append(time.strftime("%c") + ": Entering step 9")
+    
+            print_following_steps(8)
+            current_log_index = len(processing_log) - 1
+    
+            # We need to print out the processing log, the modified database itself and the task list.
+            #TODO
+            UserInput.post_status("Now Pickling the modified database. This could take some time!")
+            processing_log.append(time.strftime("%c") + ": Starting pickling of processed database.")
+            self.pickle_database("_processed")
+            processing_log.append(time.strftime("%c") + ": Finished pickling.")
+    
+            processing_log.append(time.strftime("%c") + ": Starting file output for task list.")
+            filehandler_for_task_list = FileHandler(self.pickle_path)
+            task_list_file = filehandler_for_task_list.create_file("{0}_tasks".format(self.name))
+    
+            UserInput.post_status("Now reticulating splines. This could take some time.")
+            for task in self.tasks:
+                # Write all tasks into the buffer of the file
+                task_list_file.write_string(str(task))
+            # Now stop the file Handler
+            filehandler_for_task_list.start()
+            processing_log.append(time.strftime("%c") + ": Starting file output for first list.")
+            # when we call start, we make a new Thread for the file handler which itself handles one file after the other
+            file_handler_1.start()
+            if user_wants_transposed:
+                processing_log.append(time.strftime("%c") + ": Starting file output for second list.")
+                file_handler_2.start()
+    
+            UserInput.post_status("Waiting on output1 to finish")
+            file_handler_1.join()
+    
+            UserInput.post_status("Forgot some splines. Remedying that!")
+            if user_wants_transposed:
+                UserInput.post_status("Waiting on output2 to finish")
+                # We can only wait on it if the user requested it and wants it
+                file_handler_2.join()
+    
+            UserInput.post_status("Waiting on task_list_output to finish")
+            filehandler_for_task_list.join()
+            UserInput.post_status("Now saving processing log.")
+            UserInput.post_status("I sincerely hope your time with JUMP was good!")
+            filehandler_for_log = FileHandler(self.pickle_path)
+            processing_log_file = filehandler_for_log.create_file("{0}_processing_log".format(self.name))
+            for entry in processing_log:
+                processing_log_file.write_string(str(entry))
+            filehandler_for_log.start()
+            filehandler_for_log.join()
+            UserInput.post_status("Closed the log file. Bye bye!")
+            
+            
+        elif chosen_template=="S001":
+            processing_log = []
+            current_log_index = 0
+            
+            #Step 1: Geometry of the system
+            processing_log.append(time.strftime("%c") + ": User didn't enter geometry. Starting value calculation.")
+            self.calculate_all_values()
+            self.geometry = {"Info": "no geometry given"}
+            processing_log.append(time.strftime("%c") + ": All values calculated.")
+            
+            #Step 2:
+            processing_log.append(time.strftime("%c") + ": Entering step 2")
+            #print_following_steps(1)
+            current_log_index = len(processing_log) - 1
+            
+            #Step 3:
+            processing_log.append(time.strftime("%c") + ": Entering step 3")
+            current_log_index = len(processing_log) - 1
+            self.merge_diff_level_datapoints(1,2)
+            
+            #Step 4:
+            processing_log.append(time.strftime("%c") + ": Entering step 4")
+            current_log_index = len(processing_log) - 1
+            self.insert_sub_datapoints_into_parent_datapoint(0,1)
+            
+            #Step 5:
+            processing_log.append(time.strftime("%c") + ": Entering step 5")
+            indeces=0#Maybe 1 is correct, not sure
+            processing_log.append(time.strftime("%c") + ": Selected tasks at indeces :" + str(indeces) + " for output 1")
+            task_identifier = get_task_id_from_task_list_index(indeces)
+            linked_datapoints = self._get_datapoint_list_at_identifier(task_identifier)
+            copied_datapoints = copy.deepcopy(linked_datapoints)
+            datapoint_list_1 = []
+            datapoint_list_1.append(copied_datapoints)
+            #Step 6 is skipped in this template
+            
+            #Step 7
+            processing_log.append(time.strftime("%c") + ": Entering step 7")
+            question = {"question_title": "name for directory",
+                            "question_text": "Please choose a working directory for output of list 1",
+                            "default_answer": "Temperatures",
+                            "optiontype": "free_text"}
+            directory_name = UserInput.ask_user_for_input(question)["answer"]
+            directory_name = os.path.join(self.pickle_path, directory_name + os.sep)
+            file_handler_1 = FileHandler(directory_name)
+            for number, main_task in enumerate(datapoint_list_1):
+    
+                # We need to ask the user what he wants as the base name for the files. For this, we show the user the top level
+                #  descriptors that are available, eg "Sample Sensor"
+    
+                main_task_keys_without_subtasks = []
+                UserInput.post_status("-----------------------")
+                UserInput.post_status(
+                    "At task {0}, what do you want as the attribute used inside the file name?".format(number))
+                key_for_file_name = None
+                for key in main_task[0].keys():
+                    if key != "sub_task_datapoints":
+                        main_task_keys_without_subtasks.append(key)
+    
+                main_task_keys_without_subtasks.sort()
+    
+                # Now ask the user which of the keys's value he wants to see in the file name
+                for index, key in enumerate(main_task_keys_without_subtasks):
+                    UserInput.post_status(str(index) + ": " + key)
+    
+                question = {"question_title": "What attributes' values should be used to put in the file name?",
+                                "question_text": "Please only enter the 1 corresponding number",
+                                "default_answer": "0",
+                                "optiontype": "multi_indeces"}
+    
+                index_chosen = UserInput.ask_user_for_input(question)["answer"][0]
+                key_for_file_name = main_task_keys_without_subtasks[index_chosen]
+    
+                keys_for_sub_task_datapoints = []
+                # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
+                for key in main_task[0]["sub_task_datapoints"][0].keys():
+                    keys_for_sub_task_datapoints.append(key)
+    
+                keys_for_sub_task_datapoints.sort(key=str.lower)
+                # File Header
+    
+                first_line = ""
+                for key in keys_for_sub_task_datapoints:
+                    first_line = first_line + str(key) + "\t"
+    
+                second_line = "Name: " + self.name
+                third_line = "Operator: " + self.experimenter + "\t"
+                fourth_line = "Created at: " + self.creation_time
+                fifth_line = "Comment: " + str(self.comment)
+                sixth_line = "Geometry: " + str(self.geometry)
+                seventh_line = "-------------------------------------------------------\n"
+                nineth_line = seventh_line
+                header_lines = [first_line, second_line, third_line, fourth_line, fifth_line, sixth_line, seventh_line]
+    
+    
+                # Now we access each datarow we have
+                for main_task_data_point in main_task:
+    
+                    processing_log.append(time.strftime("%c") + ": Processing task {0}".format(str(number)))
+    
+                    # now we have a dictionary at hand of our datapoints and each datapoint of the main_task gets its
+                    # own file
+                    file_name = "{0}_Task{1}_{2}_{3}".format(self.name, str(number), file_number_str,
+                                                             str(main_task_data_point[key_for_file_name]))
+    
+                    # We need to count up the file number and ready the str of it
+                    file_number += 1
+                    file_number_str = "%05d" % (
+                    file_number,)  # we want leading 0s in the name so file explorers sort them correctly
+    
+                    outputfile = file_handler_1.create_file(file_name)
+    
+                    # Write the header
+                    for line in header_lines:
+                        outputfile.write_string(line)
+    
+                    # Write main task datapoint data
+                    main_task_data_str = ""
+                    for key in main_task_keys_without_subtasks:
+                        main_task_data_str += "\t{0} {1}".format(str(key), str(main_task_data_point[key]))
+    
+                    outputfile.write_string(main_task_data_str)
+    
+                    outputfile.write_string(nineth_line)
+    
+                    # now gather every sub_task_datapoint (one line in the output file)
+                    for sub_task_datapoint in main_task_data_point["sub_task_datapoints"]:
+                        line_of_data = ""
+                        # then iterate over every key so we can generate the one line
+                        for key in keys_for_sub_task_datapoints:
+                            line_of_data += "{0}\t".format(sub_task_datapoint[key])
+                        outputfile.write_string(line_of_data)
+            
+            #Step 8 is skipped
+            
+            #Step 9:
+            processing_log.append(time.strftime("%c") + ": Entering step 9")
+    
+            # We need to print out the processing log, the modified database itself and the task list.
+            #TODO
+            processing_log.append(time.strftime("%c") + ": Starting pickling of processed database.")
+            self.pickle_database("_processed")
+            processing_log.append(time.strftime("%c") + ": Finished pickling.")
+    
+            processing_log.append(time.strftime("%c") + ": Starting file output for task list.")
+            filehandler_for_task_list = FileHandler(self.pickle_path)
+            task_list_file = filehandler_for_task_list.create_file("{0}_tasks".format(self.name))
+    
+            UserInput.post_status("Now reticulating splines. This could take some time.")
+            for task in self.tasks:
+                # Write all tasks into the buffer of the file
+                task_list_file.write_string(str(task))
+            # Now stop the file Handler
+            filehandler_for_task_list.start()
+            processing_log.append(time.strftime("%c") + ": Starting file output for first list.")
+            # when we call start, we make a new Thread for the file handler which itself handles one file after the other
+            file_handler_1.start()
+            file_handler_1.join()
+    
+            UserInput.post_status("Forgot some splines. Remedying that!")
+            UserInput.post_status("Waiting on task_list_output to finish")
+            filehandler_for_task_list.join()
+            UserInput.post_status("Now saving processing log.")
+            UserInput.post_status("I sincerely hope your time with JUMP was good!")
+            filehandler_for_log = FileHandler(self.pickle_path)
+            processing_log_file = filehandler_for_log.create_file("{0}_processing_log".format(self.name))
+            for entry in processing_log:
+                processing_log_file.write_string(str(entry))
+            filehandler_for_log.start()
+            filehandler_for_log.join()
+            UserInput.post_status("Closed the log file. Bye bye!")
     @property
     def tasks(self):
         return self.tasks_of_a_run
