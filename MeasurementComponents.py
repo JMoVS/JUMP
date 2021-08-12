@@ -454,6 +454,7 @@ class Measurement:
 
     def __init__(self):
         self.tasks = []  # type: [Task]
+        self.task_input = [] #User input to questions. Variable helps with setting up a new template
         self.meas_setup = None  # type: MeasurementSetups.MeasurementSetup
         self._choose_meas_setup()
         self.meas_setup.init_after_creation()
@@ -470,8 +471,9 @@ class Measurement:
 
         self.meas_setup = self.meas_setup_chooser.select_setup(self.list_of_setups[answer])
 
-    def new_task(self):
+    def new_task(self,custom_type=True,template=[]):
         # We need measurement setup controlables and measurables
+        template=template
         available_raw_controlables = self.meas_setup.get_controlables()
         available_controlables = []  # mainly used to be human readable in questions
         for controlable in available_raw_controlables:
@@ -488,7 +490,7 @@ class Measurement:
                     "default_answer": 0,
                     "optiontype": "multi_choice",
                     "valid_options": ["Parameter Controller", "Data Acquisition", "Trigger"]}
-        answer = UserInput.ask_user_for_input(question)
+        answer = self._get_input(custom_type,question,template)
 
         # 0 = ParameterController, code path to create a new parameter controller
         if answer["answer"] == 0:
@@ -500,7 +502,7 @@ class Measurement:
                         "default_answer": 0,
                         "optiontype": "multi_choice",
                         "valid_options": available_controlables}
-            answer = UserInput.ask_user_for_input(question)
+            answer = self._get_input(custom_type,question,template)
             desired_controlable = available_raw_controlables[answer["answer"]]
             UserInput.post_status("Beware of the following limits on this measurement setup!")
             limits = self.meas_setup.get_limits()
@@ -515,7 +517,7 @@ class Measurement:
                         "optiontype": "multi_choice",
                         "valid_options": ["ramp-based (eg temperature)",
                                           "specific values (eg frequencies)"]}
-            answer = UserInput.ask_user_for_input(question)
+            answer = self._get_input(custom_type,question,template)
 
             # answer being 0 means ramp-based is wanted
             if answer["answer"] == 0:
@@ -529,7 +531,7 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1e64,
                             "valid_options_steplength": 1e1}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 start_value = answer["answer"]
 
                 question = {"question_title": "End Value",
@@ -539,7 +541,7 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1000.0,
                             "valid_options_steplength": 1e1}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 end_value = answer["answer"]
 
                 # trigger spearation is how often the inner part of the task list should be triggered
@@ -551,7 +553,7 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1000.0,
                             "valid_options_steplength": 1e3}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 trigger_separation = answer["answer"]
 
                 # The rate in change per minute of the controlable
@@ -562,10 +564,10 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1000.0,
                             "valid_options_steplength": 1e3}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 rate_for_controlable = answer["answer"]
 
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
                 trigger = {"start_value": start_value,
                            "end_value": end_value,
                            "trigger_separation": trigger_separation,
@@ -592,7 +594,7 @@ class Measurement:
                                                   "logarithmic",
                                                   "single point",
                                                   "cancel"]}
-                    answer = UserInput.ask_user_for_input(question)
+                    answer = self._get_input(custom_type,question,template)
 
                     generated_values = []
 
@@ -609,7 +611,7 @@ class Measurement:
                                     "valid_options_lower_limit": 0.0,
                                     "valid_options_upper_limit": 1e64,
                                     "valid_options_steplength": 1e16}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         start_value = answer["answer"]
                         question = {"question_title": "End value",
                                     "question_text": "What is the desired end value? Please enter the value, both "
@@ -619,7 +621,7 @@ class Measurement:
                                     "valid_options_lower_limit": 0.0,
                                     "valid_options_upper_limit": 1e64,
                                     "valid_options_steplength": 1e16}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         end_value = answer["answer"]
 
                         question = {"question_title": "Interval or number of values",
@@ -629,7 +631,7 @@ class Measurement:
                                     "valid_options": ["interval based",
                                                       "number of points based"]}
 
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
 
                         if answer["answer"] == 0:  # interval should be used to generate the list
                             question = {"question_title": "Step size",
@@ -639,7 +641,7 @@ class Measurement:
                                         "valid_options_lower_limit": 0.0,
                                         "valid_options_upper_limit": 1e64,
                                         "valid_options_steplength": 1e16}
-                            answer = UserInput.ask_user_for_input(question)
+                            answer = self._get_input(custom_type,question,template)
                             step_interval = answer["answer"]
 
                             generated_values = Helper.create_valuelist_according_to_distribution(start_value, end_value,
@@ -654,7 +656,7 @@ class Measurement:
                                         "valid_options_lower_limit": 1.0,
                                         "valid_options_upper_limit": 1e64,
                                         "valid_options_steplength": 1e0}
-                            answer = UserInput.ask_user_for_input(question)
+                            answer = self._get_input(custom_type,question,template)
                             amount_of_values = answer["answer"]
 
                             generated_values = Helper.create_valuelist_according_to_distribution(start_value, end_value,
@@ -672,7 +674,7 @@ class Measurement:
                                     "valid_options_lower_limit": 0.0,
                                     "valid_options_upper_limit": 1e64,
                                     "valid_options_steplength": 1e16}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         start_value = answer["answer"]
                         question = {"question_title": "End value",
                                     "question_text": "What is the desired end value? Please enter the value, both "
@@ -682,7 +684,7 @@ class Measurement:
                                     "valid_options_lower_limit": 0.0,
                                     "valid_options_upper_limit": 1e64,
                                     "valid_options_steplength": 1e16}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         end_value = answer["answer"]
                         question = {"question_title": "Amount of steps",
                                     "question_text": "How many steps do you want?",
@@ -691,7 +693,7 @@ class Measurement:
                                     "valid_options_lower_limit": 1.0,
                                     "valid_options_upper_limit": 1e64,
                                     "valid_options_steplength": 1e0}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         amount_of_values = answer["answer"]
 
                         generated_values = Helper.create_valuelist_according_to_distribution(start_value, end_value,
@@ -708,7 +710,7 @@ class Measurement:
                                     "valid_options_lower_limit": 0.0,
                                     "valid_options_upper_limit": 1e64,
                                     "valid_options_steplength": 1e16}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         generated_values.append(answer["answer"])
 
 
@@ -724,7 +726,7 @@ class Measurement:
                                 "question_text": "Is this list fine?",
                                 "default_answer": True,
                                 "optiontype": "yes_no"}
-                    answer = UserInput.ask_user_for_input(question)
+                    answer = self._get_input(custom_type,question,template)
 
                     if answer:  # means: User finds this list to suit his needs
                         for value in generated_values:
@@ -737,14 +739,14 @@ class Measurement:
                                     "question_text": "Do you want to create another list/point?",
                                     "default_answer": True,
                                     "optiontype": "yes_no"}
-                        answer = UserInput.ask_user_for_input(question)
+                        answer = self._get_input(custom_type,question,template)
                         user_wants_one_more_list = answer["answer"]
                         if user_wants_one_more_list:
                             UserInput.post_status("---------- Current list is as follows ----------")
                             for index, value in enumerate(specific_values_list):
                                 UserInput.post_status(str(index) + ": " + str(value))
 
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
                 trigger = {"specific_values": specific_values_list}
                 param_controller = ParameterController(identifier, self.meas_setup, desired_controlable, trigger,
                                                        self.tasks)
@@ -757,16 +759,16 @@ class Measurement:
                         "default_answer": 0,
                         "optiontype": "multi_choice",
                         "valid_options": available_measurables}
-            answer = UserInput.ask_user_for_input(question)
+            answer = self._get_input(custom_type,question,template)
             measurable_to_measure = available_raw_measurables[answer["answer"]]
             question = {"question_title": "max deviation values during sub_tasks",
                         "question_text": "It is possible to output the maximum deviation while sub_tasks were run. "
                                          "Do you want that?",
                         "default_answer": True,
                         "optiontype": "yes_no"}
-            answer = UserInput.ask_user_for_input(question)
+            answer = self._get_input(custom_type,question,template)
             user_wants_max_deviation = answer["answer"]
-            identifier = self._get_id_for_task_insert_into_queue()
+            identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
             new_data_acqu = DataAcquisition(identifier, self.meas_setup, measurable_to_measure,
                                             user_wants_max_deviation, self.tasks)
             self.tasks.append(new_data_acqu)
@@ -780,7 +782,7 @@ class Measurement:
                         "default_answer": 0,
                         "optiontype": "multi_choice",
                         "valid_options": ["time", "meausurable"]}
-            answer = UserInput.ask_user_for_input(question)
+            answer = self._get_input(custom_type,question,template)
 
             # 0 means time triggered
             if answer["answer"] == 0:
@@ -791,7 +793,7 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1e64,
                             "valid_options_steplength": 1e16}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 total_time = answer["answer"]
                 question = {"question_title": "Trigger separation",
                             "question_text": "Please enter the trigger separation in minutes. "
@@ -801,11 +803,11 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1e64,
                             "valid_options_steplength": 1e16}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 trigger_separation = answer["answer"]
 
                 trigger = {"total_time_span": total_time, "trigger_separation": trigger_separation}
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
 
                 new_trigger = Trigger(identifier, self.meas_setup, trigger, self.tasks)
                 self.tasks.append(new_trigger)
@@ -818,7 +820,7 @@ class Measurement:
                             "default_answer": 0,
                             "optiontype": "multi_choice",
                             "valid_options": available_raw_measurables}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 measurable_to_use_as_trigger = available_measurables[answer["answer"]]
 
                 question = {"question_title": "Trigger value",
@@ -828,7 +830,7 @@ class Measurement:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1e64,
                             "valid_options_steplength": 1e16}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 triggering_value = answer["answer"]
 
                 question = {"question_title": "Trigger threshold direction",
@@ -836,13 +838,13 @@ class Measurement:
                                              "(saying NO means it triggers above the value",
                             "default_answer": True,
                             "optiontype": "yes_no"}
-                answer = UserInput.ask_user_for_input(question)
+                answer = self._get_input(custom_type,question,template)
                 trigger_when_below = answer["answer"]
 
                 trigger = {"acquis_triggering_measurable": measurable_to_use_as_trigger,
                            "acquis_triggering_value": triggering_value,
                            "acquis_triggered_when_below_value": trigger_when_below}
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
 
                 # new_trigger = Trigger...
                 # self.tasks.append(new_trigger)...
@@ -853,7 +855,7 @@ class Measurement:
         # never screw up, we directly sort after each insert/append.
         self.tasks.sort(key=lambda x: x.identifier)
 
-    def _get_id_for_task_insert_into_queue(self):
+    def _get_id_for_task_insert_into_queue(self,custom_type=True,template=[]):
         if len(self.tasks) == 0:
             id_for_task = [0]
         else:
@@ -901,7 +903,7 @@ class Measurement:
                         "default_answer": 0,
                         "optiontype": "multi_choice",
                         "valid_options": available_string_ids}
-            answer = UserInput.ask_user_for_input(question)
+            answer = answer = self._get_input(custom_type,question,template)
             id_for_task = available_ids[answer["answer"]]
         return id_for_task
 
@@ -980,6 +982,34 @@ class Measurement:
                 self.tasks.pop(to_be_removed_index)
             else:
                 UserInput.post_status("Didn't remove a thing. Carry on!")
+                
+    def _get_input(self,custom,question,template=[]):
+        """ 
+
+        Parameters
+        ----------
+        custom : Boolean
+            Decide wether to customize your measurement or use a template instead.
+        question :
+            Enter the posed question.
+        template : 
+            Enter a template, if custom=False.
+
+        Returns chosen task.
+        -------
+        Private function in order to implement template measurements. A list with all input parameters
+        serves as template.
+        
+        """
+        if custom:
+            answer = UserInput.ask_user_for_input(question)
+            self.task_input.append(answer["answer"])
+            return answer
+        else:
+            return {'answer': template.pop(0)}
+        
+                
+   
 
 
 class Helper:
@@ -1085,3 +1115,4 @@ class Helper:
             string_for_raw_file = string_for_raw_file + str(item) + "    "
         string_for_raw_file = string_for_raw_file + "format: " + str(descriptor_for_result)
         return string_for_raw_file
+

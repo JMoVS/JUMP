@@ -140,29 +140,65 @@ class MeasurementProgram:
         meas = Measurement()
 
         user_wants_something = True
-
-        while user_wants_something:
-
-            question = {"question_title": "Task Management",
-                        "question_text": "Do you want to add or remove the task or start the measurement?",
-                        "default_answer": 0,
-                        "optiontype": "multi_choice",
-                        "valid_options": ["+ Add a task", "- remove a task", "|> start the measurement!"]}
-            user_wants = UserInput.ask_user_for_input(question)["answer"]
-
-            if user_wants == 0:     # User wants to add a task
-                user_wants_something = True
-                meas.new_task()
-
-            elif user_wants == 1:
-                user_wants_something = True
-                meas.remove_task()
-
-            else:
-                user_wants_something = False
-
+        question = {"question_title": "Choose template",
+                    "question_text": "Choose wether you want to start a custom measurement or use a template instead",
+                    "default_answer": "Custom",
+                    "optiontype": "multi_choice",
+                    "valid_options": ["Custom","S001"]}
+        
+        chosen_template = UserInput.ask_user_for_input(question)["answer"]
+        
+        if chosen_template==0:
+            while user_wants_something:
+    
+                question = {"question_title": "Task Management",
+                            "question_text": "Do you want to add or remove the task or start the measurement?",
+                            "default_answer": 0,
+                            "optiontype": "multi_choice",
+                            "valid_options": ["+ Add a task", "- remove a task", "|> start the measurement!"]}
+                user_wants = UserInput.ask_user_for_input(question)["answer"]
+    
+                if user_wants == 0:     # User wants to add a task
+                    user_wants_something = True
+                    meas.new_task()
+    
+                elif user_wants == 1:
+                    user_wants_something = True
+                    meas.remove_task()
+    
+                else:
+                    user_wants_something = False
+    
+                meas.print_current_task_list()
+        elif chosen_template==1:
+            meas.new_task(False,[2,0,1.0,3.0])
+            #meas.new_task(False,[2,0,1.0,3.0])
+            #meas.new_task(False,[1,'ND_Max',False])
+            #meas.new_task(False,[2,0,1.0,3.0])
+            #meas.new_task(False,[2,0,1.0,3.0])
+            question = {"question_title": "Total time",
+                            "question_text": "Please enter the total time of the measurement in minutes",
+                            "default_answer": 10.0,
+                            "optiontype": "free_choice",
+                            "valid_options_lower_limit": 0.0,
+                            "valid_options_upper_limit": 1e64,
+                            "valid_options_steplength": 1e16}
+            answer_time_total = UserInput.ask_user_for_input(question)
+            question = {"question_title": "Trigger separation",
+                            "question_text": "Please enter the trigger separation in minutes. "
+                                             "Eg every 3 minutes",
+                            "default_answer": 3.0,
+                            "optiontype": "free_choice",
+                            "valid_options_lower_limit": 0.0,
+                            "valid_options_upper_limit": 1e64,
+                            "valid_options_steplength": 1e16}
+            answer_trigger_seperation = UserInput.ask_user_for_input(question)
+            meas.new_task(False,[2,0,answer_time_total["answer"],answer_trigger_seperation["answer"],1])
+            meas.new_task(False,[1,0,False,1])
+            
+            
             meas.print_current_task_list()
-
+    
         meas.measure()
         # Instruct database to be pickled
         DataStorage.main_db.measurement_finished()
@@ -178,3 +214,4 @@ if "version" in sys.argv:
     version()
 MP = MeasurementProgram()
 MP.start()
+

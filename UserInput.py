@@ -264,13 +264,14 @@ def ask_user_for_input(question: dict):
     return result  # type: dict
 
 
-def confirm_warning(warning_text: str):
+def confirm_warning(warning_text: str,custom:bool=True):
     # GUI code to make a window that just has an OK button
-    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    print(warning_text)
-    print("")
-    print("Confirm with Enter!")
-    input("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    if custom:
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print(warning_text)
+        print("")
+        print("Confirm with Enter!")
+        input("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 
 def post_status(new_status: str):
