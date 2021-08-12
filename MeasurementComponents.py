@@ -471,7 +471,7 @@ class Measurement:
 
         self.meas_setup = self.meas_setup_chooser.select_setup(self.list_of_setups[answer])
 
-    def new_task(self,custom_type='True',template=[]):
+    def new_task(self,custom_type=True,template=[]):
         # We need measurement setup controlables and measurables
         template=template
         available_raw_controlables = self.meas_setup.get_controlables()
