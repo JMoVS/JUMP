@@ -149,7 +149,7 @@ class MeasurementProgram:
         
         chosen_template = UserInput.ask_user_for_input(question)["answer"]
         
-        if chosen_template=="Custom":
+        if chosen_template==0:
             while user_wants_something:
     
                 question = {"question_title": "Task Management",
@@ -171,7 +171,7 @@ class MeasurementProgram:
                     user_wants_something = False
     
                 meas.print_current_task_list()
-        elif chosen_template=="S001":
+        elif chosen_template==1:
             meas.new_task(False,[1,'ND_Max',False])
             meas.new_task(False,[2,0,1.0,3.0])
             meas.new_task(False,[2,0,1.0,3.0])

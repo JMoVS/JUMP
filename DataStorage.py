@@ -141,9 +141,9 @@ class Database:
                     "valid_options": ["Custom","S001"]}
         
         chosen_template = UserInput.ask_user_for_input(question)["answer"]
-        if chosen_template=="Custom":
+        if chosen_template==0:
             database_to_manipulate._post_process(True)
-        elif chosen_template=="S001":
+        elif chosen_template==1:
             template=[False,False,True,[1,2],False,True,[0,1],False,0,False,False,0]#TODO Testing
             database_to_manipulate._post_process(False,template)
         
