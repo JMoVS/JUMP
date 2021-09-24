@@ -140,7 +140,6 @@ class MeasurementProgram:
         meas = Measurement()
 
         user_wants_something = True
-        #TODO Add template for S001 here
         question = {"question_title": "Choose template",
                     "question_text": "Choose wether you want to start a custom measurement or use a template instead",
                     "default_answer": "Custom",
@@ -172,9 +171,11 @@ class MeasurementProgram:
     
                 meas.print_current_task_list()
         elif chosen_template==1:
-            meas.new_task(False,[1,'ND_Max',False])
             meas.new_task(False,[2,0,1.0,3.0])
-            meas.new_task(False,[2,0,1.0,3.0])
+            #meas.new_task(False,[2,0,1.0,3.0])
+            #meas.new_task(False,[1,'ND_Max',False])
+            #meas.new_task(False,[2,0,1.0,3.0])
+            #meas.new_task(False,[2,0,1.0,3.0])
             question = {"question_title": "Total time",
                             "question_text": "Please enter the total time of the measurement in minutes",
                             "default_answer": 10.0,
@@ -183,7 +184,8 @@ class MeasurementProgram:
                             "valid_options_upper_limit": 1e64,
                             "valid_options_steplength": 1e16}
             answer = UserInput.ask_user_for_input(question)
-            meas.new_task(False,[2,0,answer["answer"],1.0])
+            meas.new_task(False,[2,0,answer["answer"],1.0,1])
+            meas.new_task(False,[1,0,False,1])
             #TODO One task is still missing, don't know what the input is
             
             meas.print_current_task_list()
