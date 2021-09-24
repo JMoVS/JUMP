@@ -144,7 +144,7 @@ class Database:
         if chosen_template==0:
             database_to_manipulate._post_process(True)
         elif chosen_template==1:
-            template=[False,False,True,[1,2],False,True,[0,1],False,0,False,False,0]#TODO Testing
+            template=[False,False,True,[1,2],False,True,[0,1],False,[0],False,False,0]#TODO Testing
             database_to_manipulate._post_process(False,template)
         
 
@@ -291,7 +291,7 @@ class Database:
                 "!!! [0,0,0,0] and [1,0,0,0] can't be merged because they differ on the first index "
                 "component. \n\n"
                 "This merging process will only be needed in rare cases where you for example recorded "
-                "both sample AND control temperature in DataAcquisitons or have additional sensors.")
+                "both sample AND control temperature in DataAcquisitons or have additional sensors.",custom)
     
             step2_is_finished = False
     
@@ -340,7 +340,7 @@ class Database:
             UserInput.confirm_warning(
                 "Now please merge all different-level tasks. Different level means that all compinents "
                 "of the identifier are the same, just the second one has one more component. This process"
-                " is almost always needed, if onyl to merge ParamController with DataAcquisitions")
+                " is almost always needed, if onyl to merge ParamController with DataAcquisitions",custom)
     
             step3_is_finished = False
     
@@ -394,7 +394,7 @@ class Database:
                 " one). In a classical dielectric measurement, you usually have 30 frequencies at every "
                 "temperature. This step integrate the 30 frequencies data into the temperature "
                 "datapoints. This is the reason that the first task must contain equal or less "
-                "datapoints than the second task.")
+                "datapoints than the second task.",custom)
     
             step4_is_finished = False
     
@@ -447,7 +447,7 @@ class Database:
                 "Now, specify the first round of now massaged tasks that you want output from. This is"
                 "the first ouput round. As you can see, you can transpose the data as needed in step 6. "
                 "In step 8, you'll be able to configure how exactly they should be printed out into "
-                "the file.")
+                "the file.",custom)
             print_task_list_with_indeces()
     
             question = {"question_title": "First output selection",
@@ -482,7 +482,7 @@ class Database:
     
             UserInput.confirm_warning("This step is to make it easy to also get your data into files in the other "
                                       "dependency. You essentially transpose the result matrix. In other terms, you are "
-                                      "able to output per frequency and not just per temperature.")
+                                      "able to output per frequency and not just per temperature.",custom)
     
             question = {"question_title": "Do you want transposed data?",
                         "question_text": "In a sweep, you won't, in a regular measurementa, you almost surely will.",
@@ -539,7 +539,7 @@ class Database:
             directory_name = ""
     
             UserInput.confirm_warning("Now to the easier of the two lists. The first one is usually the one where you"
-                                      "create one file per temperature.")
+                                      "create one file per temperature.",custom)
     
             question = {"question_title": "Directory name",
                         "question_text": "Usually you want the directory named \"Temperatures\", do you want to use the "
@@ -673,7 +673,7 @@ class Database:
                 directory_name = ""
     
                 UserInput.confirm_warning("Now to the hard part. The second list. This is the list containing your transposed "
-                                          "entries, so in Dielectrics parlance, the frequency files.")
+                                          "entries, so in Dielectrics parlance, the frequency files.",custom)
     
                 question = {"question_title": "Directory name",
                             "question_text": "Usually you want the directory named \"Frequencies\", do you want to use the "
@@ -896,12 +896,13 @@ class Database:
         serves as template.
         
         """
+        template=template;
         if custom:
-            answer = UserInput.ask_user_for_input(question)
-            self.task_input.append(answer["answer"])
+            answer = UserInput.ask_user_for_input(question)["answer"]
+            self.task_input.append(answer)
             return answer
         else:
-            return {'answer': template.pop(0)}
+            return template.pop(0)
         
     @property
     def tasks(self):
