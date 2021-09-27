@@ -567,7 +567,7 @@ class Measurement:
                 answer = self._get_input(custom_type,question,template)
                 rate_for_controlable = answer["answer"]
 
-                identifier = self._get_input(custom_type,question,template,True)
+                identifier = self._get_id_for_task_insert_into_queue()
                 trigger = {"start_value": start_value,
                            "end_value": end_value,
                            "trigger_separation": trigger_separation,
@@ -746,7 +746,7 @@ class Measurement:
                             for index, value in enumerate(specific_values_list):
                                 UserInput.post_status(str(index) + ": " + str(value))
 
-                identifier = self._get_input(custom_type,question,template,True)
+                identifier = self._get_id_for_task_insert_into_queue()
                 trigger = {"specific_values": specific_values_list}
                 param_controller = ParameterController(identifier, self.meas_setup, desired_controlable, trigger,
                                                        self.tasks)
@@ -768,7 +768,7 @@ class Measurement:
                         "optiontype": "yes_no"}
             answer = self._get_input(custom_type,question,template)
             user_wants_max_deviation = answer["answer"]
-            identifier = self._get_input(custom_type,question,template,True)
+            identifier = self._get_id_for_task_insert_into_queue()
             new_data_acqu = DataAcquisition(identifier, self.meas_setup, measurable_to_measure,
                                             user_wants_max_deviation, self.tasks)
             self.tasks.append(new_data_acqu)
@@ -807,7 +807,7 @@ class Measurement:
                 trigger_separation = answer["answer"]
 
                 trigger = {"total_time_span": total_time, "trigger_separation": trigger_separation}
-                identifier = self._get_input(custom_type,question,template,True)
+                identifier = self._get_id_for_task_insert_into_queue()
 
                 new_trigger = Trigger(identifier, self.meas_setup, trigger, self.tasks)
                 self.tasks.append(new_trigger)
@@ -844,7 +844,7 @@ class Measurement:
                 trigger = {"acquis_triggering_measurable": measurable_to_use_as_trigger,
                            "acquis_triggering_value": triggering_value,
                            "acquis_triggered_when_below_value": trigger_when_below}
-                identifier = self._get_input(custom_type,question,template,True)
+                identifier = self._get_id_for_task_insert_into_queue()
 
                 # new_trigger = Trigger...
                 # self.tasks.append(new_trigger)...
@@ -983,7 +983,7 @@ class Measurement:
             else:
                 UserInput.post_status("Didn't remove a thing. Carry on!")
                 
-    def _get_input(self,custom,question,template=[],task_queue=False):
+    def _get_input(self,custom,question,template=[]):
         """ 
 
         Parameters
@@ -1002,12 +1002,9 @@ class Measurement:
         
         """
         if custom:
-            if task_queue:
-                return self._get_id_for_task_insert_into_queue()
-            else:   
-                answer = UserInput.ask_user_for_input(question)
-                self.task_input.append(answer["answer"])
-                return answer
+            answer = UserInput.ask_user_for_input(question)
+            self.task_input.append(answer["answer"])
+            return answer
         else:
             return {'answer': template.pop(0)}
         

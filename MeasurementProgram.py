@@ -186,7 +186,7 @@ class MeasurementProgram:
             answer = UserInput.ask_user_for_input(question)
             meas.new_task(False,[2,0,answer["answer"],1.0,1])
             meas.new_task(False,[1,0,False,1])
-            
+            #TODO One task is still missing, don't know what the input is
             
             meas.print_current_task_list()
     
