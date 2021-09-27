@@ -567,7 +567,7 @@ class Measurement:
                 answer = self._get_input(custom_type,question,template)
                 rate_for_controlable = answer["answer"]
 
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
                 trigger = {"start_value": start_value,
                            "end_value": end_value,
                            "trigger_separation": trigger_separation,
@@ -746,7 +746,7 @@ class Measurement:
                             for index, value in enumerate(specific_values_list):
                                 UserInput.post_status(str(index) + ": " + str(value))
 
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
                 trigger = {"specific_values": specific_values_list}
                 param_controller = ParameterController(identifier, self.meas_setup, desired_controlable, trigger,
                                                        self.tasks)
@@ -768,7 +768,7 @@ class Measurement:
                         "optiontype": "yes_no"}
             answer = self._get_input(custom_type,question,template)
             user_wants_max_deviation = answer["answer"]
-            identifier = self._get_id_for_task_insert_into_queue()
+            identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
             new_data_acqu = DataAcquisition(identifier, self.meas_setup, measurable_to_measure,
                                             user_wants_max_deviation, self.tasks)
             self.tasks.append(new_data_acqu)
@@ -807,7 +807,7 @@ class Measurement:
                 trigger_separation = answer["answer"]
 
                 trigger = {"total_time_span": total_time, "trigger_separation": trigger_separation}
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
 
                 new_trigger = Trigger(identifier, self.meas_setup, trigger, self.tasks)
                 self.tasks.append(new_trigger)
@@ -844,7 +844,7 @@ class Measurement:
                 trigger = {"acquis_triggering_measurable": measurable_to_use_as_trigger,
                            "acquis_triggering_value": triggering_value,
                            "acquis_triggered_when_below_value": trigger_when_below}
-                identifier = self._get_id_for_task_insert_into_queue()
+                identifier = self._get_id_for_task_insert_into_queue(custom_type,template)
 
                 # new_trigger = Trigger...
                 # self.tasks.append(new_trigger)...
@@ -855,7 +855,7 @@ class Measurement:
         # never screw up, we directly sort after each insert/append.
         self.tasks.sort(key=lambda x: x.identifier)
 
-    def _get_id_for_task_insert_into_queue(self):
+    def _get_id_for_task_insert_into_queue(self,custom_type=True,template=[]):
         if len(self.tasks) == 0:
             id_for_task = [0]
         else:
@@ -903,7 +903,7 @@ class Measurement:
                         "default_answer": 0,
                         "optiontype": "multi_choice",
                         "valid_options": available_string_ids}
-            answer = UserInput.ask_user_for_input(question)
+            answer = answer = self._get_input(custom_type,question,template)
             id_for_task = available_ids[answer["answer"]]
         return id_for_task
 
