@@ -183,10 +183,19 @@ class MeasurementProgram:
                             "valid_options_lower_limit": 0.0,
                             "valid_options_upper_limit": 1e64,
                             "valid_options_steplength": 1e16}
-            answer = UserInput.ask_user_for_input(question)
-            meas.new_task(False,[2,0,answer["answer"],1.0,1])
+            answer_time_total = UserInput.ask_user_for_input(question)
+            question = {"question_title": "Trigger separation",
+                            "question_text": "Please enter the trigger separation in minutes. "
+                                             "Eg every 3 minutes",
+                            "default_answer": 3.0,
+                            "optiontype": "free_choice",
+                            "valid_options_lower_limit": 0.0,
+                            "valid_options_upper_limit": 1e64,
+                            "valid_options_steplength": 1e16}
+            answer_trigger_seperation = UserInput.ask_user_for_input(question)
+            meas.new_task(False,[2,0,answer_time_total["answer"],answer_trigger_seperation["answer"],1])
             meas.new_task(False,[1,0,False,1])
-            #TODO One task is still missing, don't know what the input is
+            
             
             meas.print_current_task_list()
     
