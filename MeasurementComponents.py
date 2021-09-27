@@ -1002,14 +1002,14 @@ class Measurement:
         
         """
         if custom:
+            answer = UserInput.ask_user_for_input(question)
+            self.task_input.append(answer["answer"])
+            return answer
+        else:
             if task_queue:
                 return self._get_id_for_task_insert_into_queue()
-            else:   
-                answer = UserInput.ask_user_for_input(question)
-                self.task_input.append(answer["answer"])
-                return answer
-        else:
-            return {'answer': template.pop(0)}
+            else:  
+                return {'answer': template.pop(0)}
         
                 
    
