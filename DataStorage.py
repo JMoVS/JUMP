@@ -594,7 +594,7 @@ class Database:
                                 "optiontype": "multi_indeces"}
     
                 index_chosen = self._get_input(custom, question, template)
-                key_for_file_name = main_task_keys_without_subtasks[index_chosen]
+                key_for_file_name = main_task_keys_without_subtasks[index_chosen[0]]
     
                 keys_for_sub_task_datapoints = []
                 # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
@@ -730,7 +730,7 @@ class Database:
                                     "optiontype": "multi_indeces"}
     
                     index_chosen = self._get_input(custom, question, template)
-                    key_for_file_name = main_task_keys_without_subtasks[index_chosen]
+                    key_for_file_name = main_task_keys_without_subtasks[index_chosen[0]]
     
                     keys_for_sub_task_datapoints = []
                     # I want all keys that are in sub_task datapoints in a list so I can more easily work with them
