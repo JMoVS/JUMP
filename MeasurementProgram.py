@@ -213,5 +213,4 @@ def version():
 if "version" in sys.argv:
     version()
 MP = MeasurementProgram()
-
 MP.start()

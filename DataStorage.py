@@ -878,7 +878,6 @@ class Database:
         
             
     def _get_input(self,custom,question,template=[]):
-        #TODO
         """ 
 
         Parameters
