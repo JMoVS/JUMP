@@ -141,18 +141,18 @@ class Database:
                     "valid_options": ["Custom","S001"]}
         
         chosen_template = UserInput.ask_user_for_input(question)["answer"]
-        if chosen_template==0:
+        if chosen_template == 0:
             database_to_manipulate._post_process(True)
-        elif chosen_template==1:
-            template=[False,False,True,[1,2],False,True,[0,1],False,[0],False,False,0]#TODO Testing
+        elif chosen_template == 1:
+            template=[False, False, True, [1, 2], False, True, [0, 1], False, [0], False, False, [0]]
             database_to_manipulate._post_process(False,template)
         
 
-    def _post_process(self, custom:bool=True,template=[]):
+    def _post_process(self, custom:bool=True, template=[]):
         """ the post processing workflow follows the steps outlined in post_processing_steps
 
         """
-        template=template;
+        template = template
         
         
         post_processing_steps = ["1. Ask user whether he wants geometry based calculations and calculate all possible"
