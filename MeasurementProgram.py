@@ -142,7 +142,7 @@ class MeasurementProgram:
         user_wants_something = True
         question = {"question_title": "Choose template",
                     "question_text": "Choose wether you want to start a custom measurement or use a template instead",
-                    "default_answer": "Custom",
+                    "default_answer": 0,
                     "optiontype": "multi_choice",
                     "valid_options": ["Custom","S001"]}
         

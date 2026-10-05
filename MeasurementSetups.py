@@ -176,31 +176,20 @@ class GLaDOS(MeasurementSetup):
         # as well as that we set PIDs correctly
         new_controlable = controlable
         if controlable["name"] == "Setpoint":
-            # we have to enumerate to make sure get the correct PID. For this, we have to check the next item whether
-            # it is exactly in range or not. We can safely send a temperature controller PIDs as well as old_PIDs as the
-            # temperature controller determines whether he uses old ones or current ones
-            for index, item in enumerate(self.PIDs):
-                # first check whether it is bigger than the start_temp of the item
-                if new_value >= item["startTemp"]:
-                    # then check whether current value is lower than the start value of the next one, if yes, then bingo
-                    if new_value < self.PIDs[index + 1]["startTemp"]:
-                        # we only send the PIDs if they changed:
-                        if self.current_PID != item:
-                            new_controlable = controlable["dev"].set_controlable(item)
-                            self.current_PID = item
-                        break
+            # We pick the PID band whose start temperature is the highest one not above the new value. We can safely
+            # send a temperature controller PIDs as well as old_PIDs as the temperature controller determines whether
+            # he uses old ones or current ones
+            item = self._pid_band_for(self.PIDs, new_value)
+            # we only send the PIDs if they changed:
+            if item and self.current_PID != item:
+                new_controlable = controlable["dev"].set_controlable(item)
+                self.current_PID = item
             # So after sending new PIDs that might get ignored by the temperature controller because it's an old one,
-            # we quickly iterate over all the old ones as well
-            for index, item in enumerate(self.old_controller_PIDS):
-                # first check whether it is bigger than the start_temp of the item
-                if new_value >= item["startTemp"]:
-                    # then check whether current value is lower than the start value of the next one, if yes, then bingo
-                    if new_value < self.old_controller_PIDS[index + 1]["startTemp"]:
-                        # we only send the PIDs if they changed:
-                        if self.current_old_PID != item:
-                            new_controlable = controlable["dev"].set_controlable(item)
-                            self.current_old_PID = item
-                        break
+            # we do the same for the old ones as well
+            item = self._pid_band_for(self.old_controller_PIDS, new_value)
+            if item and self.current_old_PID != item:
+                new_controlable = controlable["dev"].set_controlable(item)
+                self.current_old_PID = item
             # Now, all PIDs are set correctly and therefore we can set a setpoint as needed and as allowed or not
             if self.min_setpoint <= new_value <= self.max_setpoint:
                 new_controlable = controlable["dev"].set_controlable({"Setpoint": new_value})
@@ -211,6 +200,17 @@ class GLaDOS(MeasurementSetup):
             new_controlable = controlable["dev"].set_controlable({controlable["name"]: new_value})
 
         return new_controlable
+
+    @staticmethod
+    def _pid_band_for(pid_table: list, value):
+        """Returns the entry of pid_table that applies to value, i.e. the one with the highest startTemp that is not
+        above value. The last band is open-ended. Returns None if value is below the first band.
+        """
+        matching_band = None
+        for band in sorted(pid_table, key=lambda entry: entry["startTemp"]):
+            if value >= band["startTemp"]:
+                matching_band = band
+        return matching_band
 
     def measure_measurable(self, measurable: dict):
         # In the TKKG setup, we don't need to do anything specific before we read out the temperature or measure a

@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="JUMP, a Python program for laboratory measurements, explained in eight levels in ASD-STE100 Simplified Technical English.">
+<title>Inside JUMP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column with wide instrument panels; a level meter at the top shows how deep the reader is.
+   Colour carries meaning: blue = controllable (JUMP sends it), amber = measurable (JUMP receives it). */
+:root {
+  --bg: #ECEFF2;
+  --surface: #F8F9FA;
+  --sunk: #E2E6EA;
+  --ink: #16202A;
+  --muted: #56616D;
+  --line: #C9D0D7;
+  --ctrl: #2350C2;
+  --ctrl-soft: #DCE4F8;
+  --meas: #A85B0A;
+  --meas-soft: #F6E5D2;
+  --ok: #2B7A4B;
+  --bad: #A8392A;
+  --display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161D; --surface: #18212B; --sunk: #0C1117; --ink: #E2E7EC; --muted: #98A4B0; --line: #2C3743;
+    --ctrl: #86A6FF; --ctrl-soft: #1C2A4D; --meas: #F2A65A; --meas-soft: #3A2814; --ok: #6BCB8F; --bad: #FF8A78;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161D; --surface: #18212B; --sunk: #0C1117; --ink: #E2E7EC; --muted: #98A4B0; --line: #2C3743;
+  --ctrl: #86A6FF; --ctrl-soft: #1C2A4D; --meas: #F2A65A; --meas-soft: #3A2814; --ok: #6BCB8F; --bad: #FF8A78;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+img { max-width: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.6; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 80px; }
+.col { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(3rem, 9vw, 5.5rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 600; }
+h3 { font-size: 1.3rem; font-weight: 600; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+a { color: var(--ctrl); }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ctrl); outline-offset: 2px; }
+
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.ctrl { color: var(--ctrl); font-weight: 700; }
+.meas { color: var(--meas); font-weight: 700; }
+
+/* Header */
+header.top { display: grid; gap: 18px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.tagline { font-family: var(--display); font-size: 1.45rem; color: var(--muted); font-weight: 500; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 500; }
+
+/* Level meter */
+.meter { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 12px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+.meter-row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.seg { border: 0; background: transparent; padding: 0; text-align: left; color: var(--muted); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.seg .bar { height: 8px; border-radius: 2px; background: var(--sunk); border: 1px solid var(--line); }
+.seg.on .bar { background: var(--ink); border-color: var(--ink); }
+.seg.here .bar { background: var(--ctrl); border-color: var(--ctrl); }
+.seg .lab { font-family: var(--mono); font-size: 0.68rem; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg.on .lab { color: var(--ink); }
+.meter-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 12px; flex-wrap: wrap; }
+.linkbtn { border: 0; background: none; color: var(--ctrl); padding: 0; font-family: var(--mono); font-size: 0.78rem; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 640px) {
+  .meter-row { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 8px; }
+}
+
+/* Level sections */
+section.level { padding-block: 8px 48px; display: flex; flex-direction: column; gap: 22px; scroll-margin-top: 110px; }
+.lvl-head { display: flex; flex-direction: column; gap: 6px; }
+.lead { font-size: 1.12rem; }
+.next { align-self: flex-start; display: flex; align-items: center; gap: 14px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 12px 18px; text-align: left; }
+.next:hover { background: var(--ink); color: var(--bg); }
+.next .n { font-family: var(--mono); font-size: 0.8rem; }
+.next .t { font-family: var(--display); font-weight: 600; font-size: 1.2rem; }
+.next .arrow { font-family: var(--mono); }
+
+.example { border-left: 3px solid var(--ink); padding: 4px 0 4px 18px; display: flex; flex-direction: column; gap: 8px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+dl.defs { display: grid; grid-template-columns: minmax(0, 13rem) minmax(0, 1fr); gap: 14px 22px; margin: 0; }
+dl.defs dt { font-family: var(--mono); font-size: 0.9rem; font-weight: 500; padding-top: 2px; }
+dl.defs dd { margin: 0; }
+@media (max-width: 640px) { dl.defs { grid-template-columns: minmax(0, 1fr); gap: 4px; } dl.defs dd { margin-bottom: 12px; } }
+
+/* Level 2: send / receive diagram and sorter */
+.flow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); align-items: center; gap: 12px; }
+.box { border: 1px solid var(--line); border-radius: 6px; padding: 14px; text-align: center; font-family: var(--display); font-weight: 600; font-size: 1.1rem; background: var(--bg); }
+.box small { display: block; font-family: var(--mono); font-weight: 400; font-size: 0.72rem; color: var(--muted); }
+.arrows { display: flex; flex-direction: column; gap: 10px; font-family: var(--mono); font-size: 0.78rem; }
+.arr { padding: 6px 10px; border-radius: 4px; }
+.arr.c { background: var(--ctrl-soft); color: var(--ctrl); }
+.arr.m { background: var(--meas-soft); color: var(--meas); text-align: right; }
+@media (max-width: 560px) { .flow { grid-template-columns: minmax(0, 1fr); } }
+
+.sorter { display: grid; gap: 8px; }
+.sort-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.sort-row .q { min-width: 0; }
+.sort-row .fb { grid-column: 1 / -1; font-size: 0.92rem; }
+.sort-row .fb.good { color: var(--ok); }
+.sort-row .fb.badf { color: var(--bad); }
+.pick { display: flex; gap: 6px; flex-wrap: wrap; }
+.pick button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 4px; padding: 4px 10px; font-size: 0.85rem; }
+.pick button.c[aria-pressed="true"] { background: var(--ctrl); border-color: var(--ctrl); color: var(--surface); }
+.pick button.m[aria-pressed="true"] { background: var(--meas); border-color: var(--meas); color: var(--surface); }
+@media (max-width: 480px) { .sort-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* Level 3: simulator */
+.sim { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 820px) { .sim { grid-template-columns: minmax(0, 1fr); } }
+.tree { display: flex; flex-direction: column; gap: 6px; }
+.node { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); transition: background .15s, border-color .15s; }
+.node .id { font-family: var(--mono); font-size: 0.82rem; font-weight: 500; }
+.node .desc { font-size: 0.88rem; line-height: 1.4; min-width: 0; }
+.node .desc b { font-family: var(--mono); font-size: 0.78rem; font-weight: 500; }
+.node .cnt { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.node.d1 { margin-left: 0; } .node.d2 { margin-left: 18px; } .node.d3 { margin-left: 36px; } .node.d4 { margin-left: 54px; }
+.node.pc { border-left: 4px solid var(--ctrl); }
+.node.da { border-left: 4px solid var(--meas); }
+.node.active.pc { background: var(--ctrl-soft); border-color: var(--ctrl); }
+.node.active.da { background: var(--meas-soft); border-color: var(--meas); }
+@media (max-width: 480px) { .node.d2 { margin-left: 8px; } .node.d3 { margin-left: 16px; } .node.d4 { margin-left: 24px; } }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--ink); background: var(--ink); color: var(--bg); border-radius: 5px; padding: 8px 14px; font-size: 0.92rem; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; }
+.clock { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+.log { font-family: var(--mono); font-size: 0.78rem; line-height: 1.5; background: var(--sunk); border-radius: 6px; padding: 10px 12px; height: 168px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+.log .t { color: var(--muted); }
+.log .now { color: var(--ink); font-weight: 500; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .ax { stroke: var(--line); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+.chart .plan { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+.chart .sp { stroke: var(--ctrl); stroke-width: 2.5; fill: none; stroke-linejoin: round; }
+.chart .dot { fill: var(--ctrl); }
+.chart .trig { fill: var(--meas); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 2.5px solid var(--ctrl); }
+.legend span.p::before { border-top: 1.5px dashed var(--muted); }
+.legend span.tr::before { width: 8px; height: 8px; border: 0; border-radius: 50%; background: var(--meas); }
+
+/* Level 4: phases */
+ol.phases { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; counter-reset: ph; }
+ol.phases li { counter-increment: ph; border-top: 3px solid var(--ink); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+ol.phases li::before { content: "Phase " counter(ph); font-family: var(--mono); font-size: 0.76rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+@media (max-width: 720px) { ol.phases { grid-template-columns: minmax(0, 1fr); } }
+
+/* Level 5: processing */
+.ops { display: flex; flex-wrap: wrap; gap: 8px; }
+.op { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 5px; padding: 7px 12px; font-size: 0.88rem; display: flex; gap: 8px; align-items: baseline; }
+.op .k { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
+.op.done { border-color: var(--ok); color: var(--ok); }
+.op.done .k { color: var(--ok); }
+.op.ready { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.op.ready .k { color: var(--bg); opacity: .7; }
+.op:disabled { cursor: default; }
+.op:disabled:not(.done) { opacity: .45; }
+.lists { display: grid; gap: 10px; }
+.lst { border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lst-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.lst-head .id { font-family: var(--mono); font-weight: 500; }
+.lst-head .n { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.lst.gone { opacity: .5; }
+.keys { display: flex; flex-wrap: wrap; gap: 4px; }
+.key { font-family: var(--mono); font-size: 0.72rem; padding: 2px 6px; border-radius: 3px; background: var(--sunk); }
+.key.new { background: var(--ok); color: var(--surface); }
+pre.code { margin: 0; font-family: var(--mono); font-size: 0.74rem; line-height: 1.5; background: var(--sunk); border-radius: 6px; padding: 10px 12px; overflow-x: auto; white-space: pre; max-height: 320px; }
+.note { font-size: 0.92rem; color: var(--muted); }
+.files { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 720px) { .files { grid-template-columns: minmax(0, 1fr); } }
+.filelist { display: flex; flex-direction: column; gap: 4px; }
+.filelist button { text-align: left; border: 1px solid transparent; background: none; color: var(--ink); padding: 3px 6px; border-radius: 4px; font-family: var(--mono); font-size: 0.76rem; overflow-wrap: anywhere; }
+.filelist button[aria-pressed="true"] { border-color: var(--ink); background: var(--surface); }
+.filelist .dir { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); margin-top: 6px; }
+
+/* Level 6: calculator */
+.calc { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .calc { grid-template-columns: minmax(0, 1fr); } }
+.inputs { display: flex; flex-direction: column; gap: 10px; }
+.inputs label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem); gap: 8px; align-items: center; font-size: 0.92rem; }
+.inputs label span small { font-family: var(--mono); color: var(--muted); font-size: 0.74rem; }
+.inputs input, .inputs select { width: 100%; font-family: var(--mono); font-size: 0.85rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); }
+.inputs select { grid-column: 1 / -1; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+th { font-family: var(--mono); font-size: 0.72rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+td.v { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.k { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); }
+td.f { white-space: nowrap; }
+
+/* Level 7: layers */
+.arch { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; }
+@media (max-width: 760px) { .arch { grid-template-columns: minmax(0, 1fr); } }
+.layers { display: flex; flex-direction: column; gap: 6px; }
+.layer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: baseline; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 6px; padding: 10px 12px; text-align: left; }
+.layer .nm { font-family: var(--display); font-weight: 600; font-size: 1.08rem; }
+.layer .fl { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
+.layer[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.layer[aria-pressed="true"] .fl { color: var(--bg); opacity: .75; }
+.layer.side { border-style: dashed; }
+.down { text-align: center; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); line-height: 1; }
+.detail { border-left: 3px solid var(--ink); padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
+ol.steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 6px; }
+ul.plain { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; }
+
+footer { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 12px; font-size: 0.88rem; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Version 0.3.0 · Python 3 · PyVISA · Written in ASD-STE100</div>
+    <h1>JUMP</h1>
+    <p class="tagline">Justin's Universal Measurement Program</p>
+    <p class="col lead">This page explains JUMP in eight levels. Level 1 is simple. Each level after it gives more detail. Stop when you have sufficient information.</p>
+    <div class="facts">
+      <span>Language <b>Python 3</b></span>
+      <span>Interface <b>GPIB, USB through PyVISA</b></span>
+      <span>Instrument classes <b>7</b></span>
+      <span>Tested on <b>Windows 10, CentOS 7</b></span>
+      <span>Code <b>approx. 5 300 lines</b></span>
+    </div>
+  </header>
+
+  <nav class="meter" aria-label="Levels">
+    <div class="meter-row" id="meter"></div>
+    <div class="meter-foot">
+      <span class="eyebrow" id="meterText">Level 1 of 8</span>
+      <span style="display:flex;gap:16px">
+        <button class="linkbtn" id="showAll" type="button">Show all levels</button>
+        <button class="linkbtn" id="collapse" type="button">Show level 1 only</button>
+      </span>
+    </div>
+  </nav>
+
+  <!-- LEVEL 1 -->
+  <section class="level" id="level1" data-level="1">
+    <div class="lvl-head"><span class="eyebrow">Level 1 · Overview</span><h2>What JUMP does</h2></div>
+    <div class="col stack">
+      <p class="lead">JUMP is a computer program for laboratory measurements. It controls laboratory instruments and records the data that they measure.</p>
+      <p>The first use of JUMP is dielectric spectroscopy. This procedure measures the electrical properties of a material sample at different frequencies and temperatures.</p>
+      <div class="example">
+        <span class="eyebrow">A typical measurement</span>
+        <p>JUMP decreases the sample temperature from 300&nbsp;K to 250&nbsp;K. At each 3&nbsp;K step, it measures the sample at 30 frequencies between 1&nbsp;Hz and 10&nbsp;MHz. At the end, JUMP writes one data file for each temperature.</p>
+      </div>
+      <p>JUMP operates in a text console. It asks the operator questions. The operator types the answers.</p>
+      <p>JUMP replaces an older QBasic program. The group of Experimental Physics V at the University of Augsburg uses it.</p>
+    </div>
+  </section>
+
+  <!-- LEVEL 2 -->
+  <section class="level" id="level2" data-level="2">
+    <div class="lvl-head"><span class="eyebrow">Level 2 · The main idea</span><h2>Two types of values</h2></div>
+    <div class="col stack">
+      <p class="lead">JUMP divides all values into two types: <span class="ctrl">controllables</span> and <span class="meas">measurables</span>.</p>
+      <dl class="defs">
+        <dt class="ctrl">Controllable</dt>
+        <dd>A value that JUMP sends to an instrument. Examples: the temperature setpoint, the frequency of the test voltage.</dd>
+        <dt class="meas">Measurable</dt>
+        <dd>A value that JUMP receives from an instrument. Examples: the sample temperature, the impedance of the sample.</dd>
+      </dl>
+      <p>Some physical quantities have the two types. You set the temperature setpoint. Then you measure the real sample temperature.</p>
+      <p class="note">The code uses the spelling "controlable".</p>
+    </div>
+    <div class="panel">
+      <div class="flow" aria-label="Direction of values">
+        <div class="box">Computer<small>JUMP</small></div>
+        <div class="arrows">
+          <div class="arr c">Setpoint = 297.0 K &nbsp;→</div>
+          <div class="arr m">←&nbsp; Sensor B = 297.06 K</div>
+        </div>
+        <div class="box">Instrument<small>LakeShore 336</small></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Test your knowledge</h3><span class="eyebrow" id="sortScore">0 of 6 correct</span></div>
+      <p class="note">Select the type of each value. These values are from real instrument classes in JUMP.</p>
+      <div class="sorter" id="sorter"></div>
+    </div>
+  </section>
+
+  <!-- LEVEL 3 -->
+  <section class="level" id="level3" data-level="3">
+    <div class="lvl-head"><span class="eyebrow">Level 3 · How a measurement is built</span><h2>The task list</h2></div>
+    <div class="col stack">
+      <p class="lead">A measurement in JUMP is a list of tasks. The tasks make a tree. Each task can have sub-tasks.</p>
+      <p>JUMP has three task types:</p>
+      <dl class="defs">
+        <dt class="ctrl">ParameterController</dt>
+        <dd>Changes one controllable. After each new value, it starts its direct sub-tasks, one after the other. In the mode "ramp", it changes the value at a constant rate, for example 0.5&nbsp;K/min. In the mode "specific values", it sets each value from a list, for example 30 frequencies.</dd>
+        <dt class="meas">DataAcquisition</dt>
+        <dd>Reads one measurable and records the value. As an option, it continues to read while its sub-tasks operate. Then it also records the average and the maximum deviations.</dd>
+        <dt>Trigger</dt>
+        <dd>Starts its sub-tasks at fixed time intervals. For example: every 3&nbsp;minutes, for 5&nbsp;hours.</dd>
+      </dl>
+      <p>Each task has an identifier, for example <code>[0,0,1]</code>. The number of digits shows the depth of the task in the tree.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Simulation: a short temperature run</h3>
+        <span class="eyebrow">No instrument is necessary</span>
+      </div>
+      <p class="note">This is a short version of a real task list. Push "Next step" to see each action. Push "Start" to see all actions automatically.</p>
+      <div class="sim">
+        <div class="stack">
+          <div class="tree" id="tree"></div>
+          <div class="controls">
+            <button class="btn" id="simNext" type="button">Next step</button>
+            <button class="btn ghost" id="simPlay" type="button">Start</button>
+            <button class="btn ghost" id="simReset" type="button">Reset</button>
+            <span class="clock" id="simClock">t = 00:00</span>
+          </div>
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+        <div class="stack chart">
+          <svg id="chart" viewBox="0 0 520 300" role="img" aria-label="Setpoint against time"></svg>
+          <div class="legend"><span>Setpoint that JUMP sends</span><span class="p">Planned rate 0.5 K/min</span><span class="tr">Sub-tasks start</span></div>
+          <p class="note">During the frequency sweep, JUMP keeps the setpoint constant. After the sweep, it moves the setpoint to the planned value. Because of this, the mean rate stays at 0.5&nbsp;K/min.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEVEL 4 -->
+  <section class="level" id="level4" data-level="4">
+    <div class="lvl-head"><span class="eyebrow">Level 4 · Workflow</span><h2>Three phases</h2></div>
+    <p class="col lead">Each session with JUMP has three phases. The operator can do phase 3 at a different time and on a different computer.</p>
+    <ol class="phases">
+      <li><h3>Set up</h3><p>The operator types a name, a working directory and a comment. Then the operator selects the measurement setup and the instruments. Last, the operator makes the task list.</p></li>
+      <li><h3>Measure</h3><p>JUMP starts each task as a separate thread. The tasks operate in the sequence of the tree. Every 5&nbsp;minutes, JUMP saves the database in one of two autosave files. At the end, it saves the full database as a <code>.JUMP</code> file.</p></li>
+      <li><h3>Process</h3><p>The operator opens the <code>.JUMP</code> file. JUMP calculates more quantities and connects the data of the tasks. Then it writes text files.</p></li>
+    </ol>
+    <p class="col note">The template S001 gives fixed answers for the task list and for the processing. With a template, the operator types fewer answers.</p>
+  </section>
+
+  <!-- LEVEL 5 -->
+  <section class="level" id="level5" data-level="5">
+    <div class="lvl-head"><span class="eyebrow">Level 5 · Phase 3 in detail</span><h2>From raw data to files</h2></div>
+    <div class="col stack">
+      <p class="lead">JUMP records the data of each task in a separate list. The lists do not have a link to each other.</p>
+      <p>For example, list <code>[0,0,0,0]</code> contains 16 impedance values. But these values do not show their temperature. In phase 3, the operator connects the lists with these operations:</p>
+      <dl class="defs">
+        <dt>Merge, different level</dt>
+        <dd>Connects each point of a task with the related point of its sub-task, for example <code>[0]</code> and <code>[0,0]</code>. The two lists must have the same length. The relation is 1 to 1.</dd>
+        <dt>Merge, same level</dt>
+        <dd>Connects two tasks with the same parent, for example <code>[0,0]</code> and <code>[0,1]</code>. Use it when two sensors record data at the same time.</dd>
+        <dt>Integrate</dt>
+        <dd>Attaches <i>n</i> sub-task points to each parent point. The relation is 1 to <i>n</i>. In this example, <i>n</i> = 16 / 4 = 4.</dd>
+        <dt>Transpose</dt>
+        <dd>Changes the direction of the data. Before, each temperature has a list of frequencies. After, each frequency has a list of temperatures.</dd>
+      </dl>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Process the data from the simulation</h3><button class="linkbtn" id="procReset" type="button">Reset</button></div>
+      <p class="note">Do the operations in this sequence. Each operation uses the data that the operation before it made.</p>
+      <div class="ops" id="ops"></div>
+      <p id="procText"></p>
+      <div class="lists" id="lists"></div>
+      <div id="filesOut" hidden>
+        <div class="files">
+          <div class="filelist" id="filelist"></div>
+          <pre class="code" id="filePreview"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEVEL 6 -->
+  <section class="level" id="level6" data-level="6">
+    <div class="lvl-head"><span class="eyebrow">Level 6 · Physics</span><h2>Calculated quantities</h2></div>
+    <div class="col stack">
+      <p class="lead">The ALPHA analyzer gives three values for each point: the resistance <i>R</i>, the reactance <i>X</i> and the frequency <i>f</i>.</p>
+      <p>JUMP calculates more quantities from these values. If you give the sample thickness <i>d</i> and the electrode area <i>A</i>, JUMP also calculates the permittivity and the conductivity.</p>
+      <p class="note">JUMP uses millimetres for <i>d</i> and <i>A</i>. Because of this, it uses ε<sub>0</sub> = 8.854 × 10<sup>−15</sup> F/mm. The conductivity is in S/cm.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Calculator</h3><span class="eyebrow">Same equations as DataManipulator</span></div>
+      <div class="calc">
+        <div class="inputs">
+          <label><span>Point from the simulation</span></label>
+          <select id="cPick" aria-label="Point from the simulation"></select>
+          <label for="cR"><span><i>R</i> <small>Ω</small></span><input id="cR" type="number" step="any"></label>
+          <label for="cX"><span><i>X</i> <small>Ω</small></span><input id="cX" type="number" step="any"></label>
+          <label for="cF"><span><i>f</i> <small>Hz</small></span><input id="cF" type="number" step="any"></label>
+          <label for="cD"><span><i>d</i> <small>mm</small></span><input id="cD" type="number" step="any" value="1"></label>
+          <label for="cA"><span><i>A</i> <small>mm²</small></span><input id="cA" type="number" step="any" value="100"></label>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Quantity</th><th>Equation</th><th>Value</th><th>Key in file</th></tr></thead>
+            <tbody id="cOut"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEVEL 7 -->
+  <section class="level" id="level7" data-level="7">
+    <div class="lvl-head"><span class="eyebrow">Level 7 · Inside the code</span><h2>Program structure</h2></div>
+    <div class="col stack">
+      <p class="lead">JUMP has six Python files. Each file is one layer of the program.</p>
+      <p>All commands to an instrument go through the measurement setup. The setup knows the limits of the physical equipment. For example, a cryostat must not go above 500&nbsp;K.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Layers</h3><span class="eyebrow">Select a layer</span></div>
+      <div class="arch">
+        <div class="layers" id="layers"></div>
+        <div class="detail" id="layerDetail" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="col stack">
+      <h3>How JUMP finds an instrument</h3>
+      <ol class="steps">
+        <li>JUMP asks PyVISA for all connected instruments.</li>
+        <li>JUMP sends <code>*IDN?</code> to each instrument. The timeout is 50&nbsp;ms.</li>
+        <li>If there is no answer, JUMP sends <code>END ALWAYS</code> and <code>ID?</code>. The Agilent 3458A needs these commands.</li>
+        <li>JUMP compares each answer with the lists in the folder <code>Device_Serials</code>.</li>
+        <li>JUMP shows the recognized instruments. The operator selects one.</li>
+        <li>JUMP prepares the instrument and asks for its settings, for example the excitation voltage.</li>
+      </ol>
+      <p class="note">The repository contains only <code>Device_Serials/DUMMY.py</code>. Each laboratory adds the files for its own instruments.</p>
+    </div>
+    <div class="stack">
+      <h3>Supported instruments</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Class</th><th>Instrument</th><th>Measurables</th><th>Controllables</th></tr></thead>
+          <tbody>
+            <tr><td class="k">ALPHA</td><td>Novocontrol ALPHA analyzer</td><td class="meas">RX</td><td class="ctrl">expected_freq</td></tr>
+            <tr><td class="k">Temp_336</td><td>LakeShore 336 temperature controller</td><td class="meas">Sensor A to D (K)</td><td class="ctrl">Setpoint, PID, HeaterOutput, HeaterRange</td></tr>
+            <tr><td class="k">Quatro</td><td>Novocontrol Quatro cryosystem</td><td class="meas">Sample temperature</td><td class="ctrl">Setpoint, PowerOffNow</td></tr>
+            <tr><td class="k">Agilent4980A</td><td>Agilent 4980A LCR meter</td><td class="meas">19 functions, CpD to YTr</td><td class="ctrl">expected_freq</td></tr>
+            <tr><td class="k">Agilent3458A</td><td>Agilent 3458A multimeter</td><td class="meas">4-wire resistance</td><td class="ctrl">resistance_range</td></tr>
+            <tr><td class="k">Keysight_MSO_X_3014T</td><td>Keysight oscilloscope</td><td class="meas">V<sub>max</sub> on channels 1 and 2</td><td>None</td></tr>
+            <tr><td class="k">NIMaxScreenshots</td><td>Screen of NI MAX, read with OCR</td><td class="meas">8 channels in mV</td><td>None</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col stack">
+      <h3>How to add an instrument</h3>
+      <ol class="steps">
+        <li>Copy the class <code>DUMMY</code> in <code>MeasurementHardware.py</code>.</li>
+        <li>Give the class a new name.</li>
+        <li>Write the methods <code>measure_measurable</code> and <code>set_controlable</code> for the instrument.</li>
+        <li>Write the <code>*IDN?</code> answer of the instrument in a new file in <code>Device_Serials</code>.</li>
+        <li>Add the class name to the parent classes of <code>MeasurementDeviceChooser</code>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- LEVEL 8 -->
+  <section class="level" id="level8" data-level="8">
+    <div class="lvl-head"><span class="eyebrow">Level 8 · Status</span><h2>Limits of version 0.3.0</h2></div>
+    <div class="col stack">
+      <ul class="plain">
+        <li>JUMP has no graphic interface. It does not show the data during a measurement.</li>
+        <li>The Trigger task operates only with time. A trigger that uses a measured value is not complete.</li>
+        <li>You cannot safely stop a measurement. If one thread fails, the measurement can stop.</li>
+        <li>The <code>.JUMP</code> file uses the Python format "pickle". Only Python with the JUMP classes can open it. Do not open <code>.JUMP</code> files from unknown sources.</li>
+        <li>The code uses <code>import visa</code>. Current PyVISA versions do not have this module. Use an older PyVISA version or change the import.</li>
+        <li>Templates are fixed lists of answers. If a question changes, the template also must change.</li>
+      </ul>
+    </div>
+    <footer>
+      <p><b>About the language on this page.</b> This page uses ASD-STE100 Simplified Technical English. An instruction has a maximum of 20 words. A description has a maximum of 25 words. Each sentence has one topic. Technical names, for example ParameterController, are permitted.</p>
+      <p>The simulation and the example data use a model sample. They do not come from a real measurement.</p>
+      <p>Source code: <a href="https://github.com/JMoVS/JUMP">github.com/JMoVS/JUMP</a></p>
+    </footer>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var LEVELS = ["Overview", "Two types", "Task list", "Phases", "Processing", "Physics", "Code", "Status"];
+  var EPS0 = 8.85418782e-15;
+  var GEO = { thickness: 1.0, area: 100.0 };
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+  /* ---------------- Progressive disclosure ---------------- */
+  var sections = Array.prototype.slice.call(document.querySelectorAll("section.level"));
+  var depth = 1;
+  var meter = $("meter");
+  LEVELS.forEach(function (name, i) {
+    var b = el("button", "seg"); b.type = "button";
+    b.setAttribute("aria-label", "Level " + (i + 1) + ": " + name);
+    b.appendChild(el("span", "bar"));
+    b.appendChild(el("span", "lab", (i + 1) + " " + name));
+    b.addEventListener("click", function () { setDepth(Math.max(depth, i + 1)); go(i + 1); });
+    meter.appendChild(b);
+  });
+  sections.forEach(function (s, i) {
+    if (i === sections.length - 1) return;
+    var b = el("button", "next"); b.type = "button";
+    b.appendChild(el("span", "n", "Level " + (i + 2)));
+    b.appendChild(el("span", "t", s.nextElementSibling ? sections[i + 1].querySelector("h2").textContent : ""));
+    b.appendChild(el("span", "arrow", "↓"));
+    b.addEventListener("click", function () { setDepth(i + 2); go(i + 2); });
+    b.dataset.nextFor = String(i + 1);
+    s.appendChild(b);
+  });
+  function setDepth(n) {
+    depth = Math.min(8, Math.max(1, n));
+    sections.forEach(function (s, i) {
+      s.hidden = i + 1 > depth;
+      var nb = s.querySelector(".next");
+      if (nb) nb.hidden = i + 1 !== depth;
+    });
+    Array.prototype.forEach.call(meter.children, function (b, i) {
+      b.classList.toggle("on", i < depth);
+      b.classList.toggle("here", i === depth - 1);
+    });
+    $("meterText").textContent = "Level " + depth + " of 8 shown";
+    store("jump-depth", String(depth));
+  }
+  function go(n) { var s = $("level" + n); if (s) s.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }
+  $("showAll").addEventListener("click", function () { setDepth(8); });
+  $("collapse").addEventListener("click", function () { setDepth(1); window.scrollTo(0, 0); });
+  var hashM = /^#level([1-8])$/.exec(location.hash || "");
+  var saved = parseInt(store("jump-depth") || "1", 10);
+  setDepth(hashM ? Math.max(parseInt(hashM[1], 10), saved || 1) : (saved || 1));
+  if (hashM) setTimeout(function () { go(parseInt(hashM[1], 10)); }, 50);
+
+  /* ---------------- Level 2: sorter ---------------- */
+  var ITEMS = [
+    ["Setpoint", "LakeShore 336", "c"],
+    ["Sensor A", "LakeShore 336", "m"],
+    ["expected_freq", "ALPHA analyzer", "c"],
+    ["RX (impedance)", "ALPHA analyzer", "m"],
+    ["HeaterRange", "LakeShore 336", "c"],
+    ["V_max_Chan1CHan2", "Keysight oscilloscope", "m"]
+  ];
+  var answers = {};
+  ITEMS.forEach(function (it, i) {
+    var row = el("div", "sort-row");
+    var q = el("div", "q"); var nm = el("code", null, it[0]); q.appendChild(nm); q.appendChild(document.createTextNode(" at " + it[1]));
+    var pick = el("div", "pick");
+    var fb = el("div", "fb"); fb.hidden = true;
+    [["c", "Controllable"], ["m", "Measurable"]].forEach(function (opt) {
+      var b = el("button", opt[0], opt[1]); b.type = "button"; b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () {
+        Array.prototype.forEach.call(pick.children, function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", "true");
+        var right = opt[0] === it[2];
+        answers[i] = right;
+        fb.hidden = false;
+        fb.className = "fb " + (right ? "good" : "badf");
+        fb.textContent = (right ? "Correct. " : "Not correct. ") + (it[2] === "c" ? "JUMP sends this value to the instrument." : "JUMP receives this value from the instrument.");
+        var n = 0; for (var k in answers) if (answers[k]) n++;
+        $("sortScore").textContent = n + " of 6 correct";
+      });
+      pick.appendChild(b);
+    });
+    row.appendChild(q); row.appendChild(pick); row.appendChild(fb);
+    $("sorter").appendChild(row);
+  });
+
+  /* ---------------- Model sample and simulated run ---------------- */
+  var TEMPS = [300, 297, 294, 291];
+  var FREQS = [1, 100, 1e4, 1e6];
+  var FNAME = { 1: "1 Hz", 100: "100 Hz", 10000: "10 kHz", 1000000: "1 MHz" };
+  function modelRX(T, f) {
+    var kB = 8.617e-5, Ea = 0.4, tau = 1e-4 * Math.exp(Ea / kB * (1 / T - 1 / 300));
+    var w = 2 * Math.PI * f, wt = w * tau, den = 1 + wt * wt;
+    var e1 = 3 + 20 / den, e2 = 20 * wt / den;
+    var C0 = EPS0 * GEO.area / GEO.thickness;
+    var Yr = w * C0 * e2, Yi = w * C0 * e1, m = Yr * Yr + Yi * Yi;
+    return { R: Yr / m, X: -Yi / m };
+  }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function hms(sec) { var m = Math.floor(sec / 60), s = Math.round(sec - m * 60); if (s === 60) { m++; s = 0; } return pad2(m) + ":" + pad2(s); }
+  function stamp(sec) { var base = 9 * 3600 + 30 * 60 + Math.round(sec); var h = Math.floor(base / 3600), m = Math.floor(base % 3600 / 60), s = base % 60; return "11.10.2016 " + pad2(h) + ":" + pad2(m) + ":" + pad2(s); }
+  function fmt(x, p) { if (x === 0) return "0"; var a = Math.abs(x); if (a >= 1e5 || a < 1e-3) return x.toExponential((p || 4) - 1).replace("e+", "e"); return String(+x.toPrecision(p || 5)); }
+
+  var RAW = { "0": [], "0,0": [], "0,0,0": [], "0,0,0,0": [] };
+  var STEPS = [];
+  var VERT = [];
+  (function build() {
+    TEMPS.forEach(function (T, k) {
+      var tk = k * 360;
+      var ts = +(T + 0.06 + 0.02 * Math.sin(k * 1.7)).toFixed(3);
+      RAW["0"].push({ "Setpoint": T + 0.0 });
+      STEPS.push({ t: tk, a: "0", add: "0", txt: "[0] Sends Setpoint = " + T.toFixed(1) + " K. Records the point. Starts the sub-tasks." });
+      STEPS.push({ t: tk, a: "0,0", txt: "[0,0] Reads Sample Sensor: " + ts.toFixed(3) + " K. Continues to read during the sweep." });
+      FREQS.forEach(function (f, j) {
+        var t0 = tk + j * 30;
+        var rx = modelRX(ts, f);
+        RAW["0,0,0"].push({ "expected_freq": f + 0.0 });
+        RAW["0,0,0,0"].push({ "R": rx.R, "X": rx.X, "freq": f + 0.0, "successful_alpha": "True", "message_alpha": "Measurement was successful", "time_alpha": stamp(t0 + 30) });
+        STEPS.push({ t: t0, a: "0,0,0", add: "0,0,0", txt: "[0,0,0] Sends expected_freq = " + FNAME[f] + " to the ALPHA." });
+        STEPS.push({ t: t0 + 30, a: "0,0,0,0", add: "0,0,0,0", txt: "[0,0,0,0] Measures RX: R = " + fmt(rx.R, 4) + " Ω, X = " + fmt(rx.X, 4) + " Ω." });
+      });
+      var dp = 0.03 + 0.01 * k, dn = 0.025 + 0.008 * k;
+      RAW["0,0"].push({ "Sample Sensor": ts, "time_Sample Sensor": stamp(tk), "Sample Sensor_max_-": +(ts - dn).toFixed(3), "Sample Sensor_max_+": +(ts + dp).toFixed(3), "Sample Sensor_aver": +(ts + 0.004).toFixed(4) });
+      STEPS.push({ t: tk + 120, a: "0,0", add: "0,0", txt: "[0,0] Sweep complete. Records start value, average and maximum deviations." });
+      VERT.push([tk, T], [tk + 120, T]);
+      if (k < TEMPS.length - 1) {
+        VERT.push([tk + 120.5, T - 1], [tk + 360, T - 3]);
+        STEPS.push({ t: tk + 120.5, a: "0", txt: "[0] Moves the setpoint to the planned value " + (T - 1).toFixed(1) + " K. Then decreases it at 0.5 K/min." });
+      }
+    });
+    STEPS.push({ t: 3 * 360 + 121, a: null, txt: "End value 291 K reached. All threads stop. JUMP saves Run1.JUMP." });
+  })();
+
+  /* ---------------- Level 3: simulator ---------------- */
+  var NODES = [
+    { id: "0", d: 1, cls: "pc", html: "<b>ParamContr · ramp</b><br>Setpoint 300 K → 291 K, 0.5 K/min, sub-tasks every 3 K" },
+    { id: "0,0", d: 2, cls: "da", html: "<b>DataAcq</b><br>Sample Sensor, with deviation values" },
+    { id: "0,0,0", d: 3, cls: "pc", html: "<b>ParamContr · specific values</b><br>expected_freq: 1 Hz, 100 Hz, 10 kHz, 1 MHz" },
+    { id: "0,0,0,0", d: 4, cls: "da", html: "<b>DataAcq</b><br>RX at ALPHA" }
+  ];
+  var nodeEls = {};
+  NODES.forEach(function (n) {
+    var d = el("div", "node d" + n.d + " " + n.cls);
+    d.appendChild(el("span", "id", "[" + n.id + "]"));
+    var ds = el("span", "desc"); ds.innerHTML = n.html; d.appendChild(ds);
+    var c = el("span", "cnt", "0 points"); d.appendChild(c);
+    $("tree").appendChild(d);
+    nodeEls[n.id] = { box: d, cnt: c };
+  });
+  var cur = -1, timer = null;
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var CH = { w: 520, h: 300, l: 46, r: 14, t: 14, b: 34, t0: 0, t1: 1200, y0: 290, y1: 301 };
+  function sx(t) { return CH.l + (t - CH.t0) / (CH.t1 - CH.t0) * (CH.w - CH.l - CH.r); }
+  function sy(v) { return CH.t + (CH.y1 - v) / (CH.y1 - CH.y0) * (CH.h - CH.t - CH.b); }
+  function svg(tag, attrs, text) { var e = document.createElementNS(SVGNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+  var chart = $("chart"), gDyn;
+  (function axes() {
+    [291, 294, 297, 300].forEach(function (v) {
+      chart.appendChild(svg("line", { x1: CH.l, x2: CH.w - CH.r, y1: sy(v), y2: sy(v), "class": "ax", "stroke-opacity": 0.6 }));
+      chart.appendChild(svg("text", { x: CH.l - 6, y: sy(v) + 3, "text-anchor": "end", "class": "tick" }, v + " K"));
+    });
+    [0, 4, 8, 12, 16, 20].forEach(function (m) {
+      chart.appendChild(svg("line", { x1: sx(m * 60), x2: sx(m * 60), y1: CH.h - CH.b, y2: CH.h - CH.b + 4, "class": "ax" }));
+      chart.appendChild(svg("text", { x: sx(m * 60), y: CH.h - CH.b + 16, "text-anchor": "middle", "class": "tick" }, m + " min"));
+    });
+    chart.appendChild(svg("line", { x1: CH.l, x2: CH.w - CH.r, y1: CH.h - CH.b, y2: CH.h - CH.b, "class": "ax" }));
+    gDyn = svg("g", {}); chart.appendChild(gDyn);
+  })();
+  function drawChart(tNow) {
+    while (gDyn.firstChild) gDyn.removeChild(gDyn.firstChild);
+    if (tNow < 0) return;
+    var tp = Math.min(tNow, 1080);
+    gDyn.appendChild(svg("line", { x1: sx(0), y1: sy(300), x2: sx(tp), y2: sy(300 - tp / 120), "class": "plan" }));
+    var pts = [];
+    for (var i = 0; i < VERT.length; i++) {
+      var v = VERT[i];
+      if (v[0] <= tNow) pts.push(v);
+      else { var p = VERT[i - 1]; if (p && tNow > p[0]) pts.push([tNow, p[1] + (v[1] - p[1]) * (tNow - p[0]) / (v[0] - p[0])]); break; }
+    }
+    if (pts.length) {
+      gDyn.appendChild(svg("polyline", { points: pts.map(function (p) { return sx(p[0]).toFixed(1) + "," + sy(p[1]).toFixed(1); }).join(" "), "class": "sp" }));
+      var last = pts[pts.length - 1];
+      gDyn.appendChild(svg("circle", { cx: sx(last[0]), cy: sy(last[1]), r: 4, "class": "dot" }));
+    }
+    TEMPS.forEach(function (T, k) { if (k * 360 <= tNow) gDyn.appendChild(svg("circle", { cx: sx(k * 360), cy: sy(T), r: 3.5, "class": "trig" })); });
+  }
+  function renderSim() {
+    var counts = { "0": 0, "0,0": 0, "0,0,0": 0, "0,0,0,0": 0 };
+    var log = $("log"); log.textContent = "";
+    for (var i = 0; i <= cur; i++) {
+      var s = STEPS[i];
+      if (s.add) counts[s.add]++;
+      var line = el("div", i === cur ? "now" : null);
+      line.appendChild(el("span", "t", "t=" + hms(s.t) + "  "));
+      line.appendChild(document.createTextNode(s.txt));
+      log.appendChild(line);
+    }
+    if (cur < 0) log.appendChild(el("div", "t", "Push \"Next step\" or \"Start\"."));
+    log.scrollTop = log.scrollHeight;
+    var active = cur >= 0 ? STEPS[cur].a : null;
+    NODES.forEach(function (n) {
+      nodeEls[n.id].box.classList.toggle("active", n.id === active);
+      nodeEls[n.id].cnt.textContent = counts[n.id] + (counts[n.id] === 1 ? " point" : " points");
+    });
+    var tNow = cur >= 0 ? STEPS[cur].t : -1;
+    $("simClock").textContent = "t = " + hms(Math.max(0, tNow));
+    drawChart(tNow);
+    $("simNext").disabled = cur >= STEPS.length - 1;
+    if (cur >= STEPS.length - 1) stop();
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } $("simPlay").textContent = "Start"; }
+  $("simNext").addEventListener("click", function () { stop(); if (cur < STEPS.length - 1) { cur++; renderSim(); } });
+  $("simPlay").addEventListener("click", function () {
+    if (timer) { stop(); return; }
+    if (cur >= STEPS.length - 1) cur = -1;
+    $("simPlay").textContent = "Pause";
+    timer = setInterval(function () { cur++; renderSim(); }, 650);
+  });
+  $("simReset").addEventListener("click", function () { stop(); cur = -1; renderSim(); });
+  renderSim();
+
+  /* ---------------- DataManipulator equivalents ---------------- */
+  function cx(re, im) { return { re: re, im: im }; }
+  function cinv(z) { var m = z.re * z.re + z.im * z.im; return cx(z.re / m, -z.im / m); }
+  function calcNonGeo(p) {
+    var q = Object.assign({}, p);
+    if ("R" in q && "X" in q) {
+      var Z = cx(q.R, q.X), Y = cinv(Z);
+      q.Z_comp = Z; q.Z_real = Z.re; q.Z_imag = Z.im;
+      q.Y_comp = Y; q.Y_real = Y.re; q.Y_imag = Y.im;
+      q.G_one_prime = Y.re; q.G_two_prime = Y.im; q.B = Y.im;
+    }
+    if ("freq" in q) { q.Omega = q.freq * 2 * Math.PI; q.log_freq = Math.log10(q.freq); }
+    if ("G_two_prime" in q && "Omega" in q) q.C_prime = q.G_two_prime / q.Omega;
+    if ("G_one_prime" in q) q.Phase = Math.atan2(q.G_two_prime, q.G_one_prime);
+    return q;
+  }
+  function calcGeo(p, g) {
+    var q = Object.assign({}, p), did = false;
+    if ("C_prime" in q) { q.Epsilon_one_prime = q.C_prime * g.thickness / (EPS0 * g.area); did = true; }
+    if ("G_one_prime" in q && "Omega" in q) { q.Epsilon_two_prime = q.G_one_prime * g.thickness / (EPS0 * q.Omega * g.area); did = true; }
+    if ("Epsilon_one_prime" in q && "Epsilon_two_prime" in q) q.Tan_delta = q.Epsilon_two_prime / q.Epsilon_one_prime;
+    if ("Y_comp" in q) {
+      var s = cinv(q.Z_comp); s = cx(s.re * g.thickness * 10 / g.area, s.im * g.thickness * 10 / g.area);
+      q.Sigma_comp = s; q.Sigma_one_prime = s.re; q.Sigma_two_prime = s.im; did = true;
+    }
+    if (did) { q.Thickness = g.thickness; q.Area = g.area; }
+    return q;
+  }
+
+  /* ---------------- Level 5: processing ---------------- */
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  var OPS = [
+    { k: "Step 1", t: "Calculate values", txt: "JUMP calculates all possible quantities for each point. The geometry is d = 1 mm, A = 100 mm². Only list [0,0,0,0] has R and X, so only it receives new keys." },
+    { k: "Step 3", t: "Merge [0,0] into [0]", txt: "Different-level merge. Point 1 of [0,0] goes into point 1 of [0], point 2 into point 2, and so on. Now each setpoint has its real sample temperature." },
+    { k: "Step 3", t: "Merge [0,0,0,0] into [0,0,0]", txt: "Different-level merge. Now each frequency setting has its RX result and the calculated quantities." },
+    { k: "Step 4", t: "Integrate [0,0,0] into [0]", txt: "Each of the 4 temperature points receives 4 frequency points as sub_task_datapoints. The relation is 1 to 4." },
+    { k: "Step 6", t: "Transpose", txt: "JUMP makes a second result. It has 4 frequency points. Each frequency point has 4 temperature points." },
+    { k: "Step 7–9", t: "Write files", txt: "JUMP writes one file for each temperature in the folder Temperatures. It writes one file for each frequency in the folder Frequencies. Select a file to see its start." }
+  ];
+  var pstage = 0, P = null, TRANS = null, prevKeys = {};
+  function procInit() { pstage = 0; P = clone(RAW); TRANS = null; prevKeys = {}; renderProc(); }
+  function keysOf(list) { return list.length ? Object.keys(list[0]).filter(function (k) { return k !== "sub_task_datapoints"; }) : []; }
+  function pyF(x) {
+    if (typeof x === "string") return x;
+    if (typeof x === "object" && x && "re" in x) return "(" + pyF(x.re) + (x.im < 0 || Object.is(x.im, -0) ? "-" : "+") + pyF(Math.abs(x.im)) + "j)";
+    if (Number.isInteger(x) && Math.abs(x) < 1e16) return x.toFixed(1);
+    return String(x);
+  }
+  function short(x) {
+    if (typeof x === "string") return JSON.stringify(x);
+    if (typeof x === "object" && x && "re" in x) return "(" + fmt(x.re, 4) + (x.im < 0 ? " - " : " + ") + fmt(Math.abs(x.im), 4) + "j)";
+    return fmt(x, 6);
+  }
+  function pointText(p, indent, maxKeys) {
+    var pad = new Array(indent + 1).join(" "), out = pad + "{";
+    var ks = Object.keys(p).filter(function (k) { return k !== "sub_task_datapoints"; });
+    var shown = ks.slice(0, maxKeys);
+    out += shown.map(function (k) { return "\n" + pad + "  " + JSON.stringify(k) + ": " + short(p[k]); }).join(",");
+    if (ks.length > shown.length) out += ",\n" + pad + "  … " + (ks.length - shown.length) + " more keys";
+    if (p.sub_task_datapoints) {
+      out += ",\n" + pad + "  \"sub_task_datapoints\": [\n" + pointText(p.sub_task_datapoints[0], indent + 4, 4) + ",\n" + pad + "    … " + (p.sub_task_datapoints.length - 1) + " more points\n" + pad + "  ]";
+    }
+    return out + "\n" + pad + "}";
+  }
+  function listBox(id, list, gone, newKeys) {
+    var b = el("div", "lst" + (gone ? " gone" : ""));
+    var h = el("div", "lst-head");
+    h.appendChild(el("span", "id", id));
+    h.appendChild(el("span", "n", list.length + " points" + (gone ? " · merged into another list" : "")));
+    b.appendChild(h);
+    var ks = el("div", "keys");
+    keysOf(list).forEach(function (k) { ks.appendChild(el("span", "key" + (newKeys && newKeys.indexOf(k) >= 0 ? " new" : ""), k)); });
+    if (list[0] && list[0].sub_task_datapoints) ks.appendChild(el("span", "key new", "sub_task_datapoints [" + list[0].sub_task_datapoints.length + "]"));
+    b.appendChild(ks);
+    if (!gone && list[0]) b.appendChild(el("pre", "code", "First point:\n" + pointText(list[0], 0, 6)));
+    return b;
+  }
+  var gone = {};
+  function doOp(i) {
+    var before = {}; Object.keys(P).forEach(function (k) { before[k] = keysOf(P[k]); });
+    if (i === 0) { Object.keys(P).forEach(function (k) { P[k] = P[k].map(function (p) { return calcGeo(calcNonGeo(p), GEO); }); }); }
+    if (i === 1) { P["0"].forEach(function (p, j) { Object.assign(p, P["0,0"][j]); }); gone["0,0"] = true; }
+    if (i === 2) { P["0,0,0"].forEach(function (p, j) { Object.assign(p, P["0,0,0,0"][j]); }); gone["0,0,0,0"] = true; }
+    if (i === 3) {
+      var n = P["0,0,0"].length / P["0"].length;
+      P["0"].forEach(function (p, j) { p.sub_task_datapoints = P["0,0,0"].slice(j * n, j * n + n).map(clone); });
+      gone["0,0,0"] = true;
+    }
+    if (i === 4) {
+      var src = P["0"];
+      TRANS = src[0].sub_task_datapoints.map(function (sub, fi) {
+        var np = clone(sub);
+        np.sub_task_datapoints = src.map(function (tp) { var c = clone(tp.sub_task_datapoints[fi]); var par = clone(tp); delete par.sub_task_datapoints; return Object.assign(c, par); });
+        return np;
+      });
+    }
+    prevKeys = before;
+    pstage = i + 1;
+    renderProc();
+  }
+  function renderProc() {
+    var ops = $("ops"); ops.textContent = "";
+    if (pstage === 0) gone = {};
+    OPS.forEach(function (o, i) {
+      var b = el("button", "op" + (i < pstage ? " done" : i === pstage ? " ready" : "")); b.type = "button";
+      b.appendChild(el("span", "k", o.k)); b.appendChild(document.createTextNode((i < pstage ? "✓ " : "") + o.t));
+      b.disabled = i !== pstage;
+      b.addEventListener("click", function () { doOp(i); });
+      ops.appendChild(b);
+    });
+    $("procText").textContent = pstage === 0 ? "This is the database after the simulated run. It has four separate lists." : OPS[pstage - 1].txt;
+    var lists = $("lists"); lists.textContent = "";
+    $("filesOut").hidden = pstage < 6;
+    if (pstage >= 6) { lists.hidden = true; renderFiles(); return; }
+    lists.hidden = false;
+    if (pstage === 5) {
+      lists.appendChild(listBox("Transposed result of [0]", TRANS, false, ["sub_task_datapoints"]));
+      return;
+    }
+    ["0", "0,0", "0,0,0", "0,0,0,0"].forEach(function (id) {
+      var nk = null;
+      if (pstage > 0 && prevKeys[id]) nk = keysOf(P[id]).filter(function (k) { return prevKeys[id].indexOf(k) < 0; });
+      lists.appendChild(listBox("[" + id + "]", P[id], !!gone[id], nk));
+    });
+  }
+  function sortLower(a, b) { var x = a.toLowerCase(), y = b.toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; }
+  function fileFor(parent, subs, headerKeys) {
+    var subKeys = Object.keys(subs[0]).filter(function (k) { return k !== "sub_task_datapoints"; }).sort(sortLower);
+    var lines = [];
+    lines.push(subKeys.join("\t") + "\t");
+    lines.push("Name: Run1");
+    lines.push("Operator: Tron\t");
+    lines.push("Created at: 11.10.2016 09:30:00");
+    lines.push("Comment: I fight for the User!");
+    lines.push("Geometry: {'thickness': 1.0, 'area': 100.0}");
+    lines.push("-------------------------------------------------------\n");
+    lines.push(headerKeys.map(function (k) { return "\t" + k + " " + pyF(parent[k]); }).join(""));
+    lines.push("-------------------------------------------------------\n");
+    subs.forEach(function (s) { lines.push(subKeys.map(function (k) { return pyF(s[k]) + "\t"; }).join("")); });
+    return lines.join("\n");
+  }
+  function renderFiles() {
+    var fl = $("filelist"); fl.textContent = "";
+    var files = [], n = 1;
+    var mainKeys = keysOf(P["0"]).sort();
+    fl.appendChild(el("div", "dir", "Temperatures/"));
+    P["0"].forEach(function (p) {
+      files.push({ dirIdx: 0, name: "Run1_Task0_" + ("0000" + n).slice(-5) + "_" + pyF(p["Setpoint"]) + ".txt", body: fileFor(p, p.sub_task_datapoints, mainKeys) }); n++;
+    });
+    if (TRANS) {
+      n = 1;
+      TRANS.forEach(function (p) {
+        files.push({ dirIdx: 1, name: "Run1_Task0_" + ("0000" + n).slice(-5) + "_" + pyF(p["expected_freq"]) + ".txt", body: fileFor(p, p.sub_task_datapoints, ["expected_freq", "freq"]) }); n++;
+      });
+    }
+    var buttons = [];
+    files.forEach(function (f, i) {
+      if (i === 4) fl.appendChild(el("div", "dir", "Frequencies/"));
+      var b = el("button", null, f.name); b.type = "button"; b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () { buttons.forEach(function (x) { x.setAttribute("aria-pressed", "false"); }); b.setAttribute("aria-pressed", "true"); $("filePreview").textContent = f.body; });
+      fl.appendChild(b); buttons.push(b);
+    });
+    fl.appendChild(el("div", "dir", "Run1_processed.JUMP, Run1_tasks.txt, Run1_processing_log.txt"));
+    if (buttons[0]) buttons[0].click();
+  }
+  $("procReset").addEventListener("click", procInit);
+  procInit();
+
+  /* ---------------- Level 6: calculator ---------------- */
+  var pick = $("cPick");
+  RAW["0,0,0,0"].forEach(function (p, i) {
+    var T = TEMPS[Math.floor(i / 4)];
+    var o = el("option", null, T + " K · " + FNAME[p.freq]); o.value = String(i); pick.appendChild(o);
+  });
+  pick.value = "2";
+  function fillFromPick() { var p = RAW["0,0,0,0"][+pick.value]; $("cR").value = +p.R.toPrecision(6); $("cX").value = +p.X.toPrecision(6); $("cF").value = p.freq; calc(); }
+  function calc() {
+    var R = parseFloat($("cR").value), X = parseFloat($("cX").value), f = parseFloat($("cF").value), d = parseFloat($("cD").value), A = parseFloat($("cA").value);
+    var out = $("cOut"); out.textContent = "";
+    if (![R, X, f, d, A].every(isFinite) || f <= 0 || d <= 0 || A <= 0 || (R === 0 && X === 0)) {
+      var tr = el("tr"); var td = el("td", null, "Type numbers for all fields. f, d and A must be more than zero. R and X must not both be zero."); td.colSpan = 4; tr.appendChild(td); out.appendChild(tr); return;
+    }
+    var q = calcGeo(calcNonGeo({ R: R, X: X, freq: f }), { thickness: d, area: A });
+    var rows = [
+      ["Admittance, real", "Y′ = Re(1/Z*)", fmt(q.Y_real) + " S", "Y_real, G_one_prime"],
+      ["Admittance, imaginary", "Y″ = Im(1/Z*)", fmt(q.Y_imag) + " S", "Y_imag, G_two_prime, B"],
+      ["Angular frequency", "ω = 2πf", fmt(q.Omega) + " s⁻¹", "Omega"],
+      ["Capacitance", "C′ = Y″ / ω", fmt(q.C_prime) + " F", "C_prime"],
+      ["Phase", "φ = arg(G′ + iG″)", fmt(q.Phase * 180 / Math.PI, 4) + "°", "Phase (in rad)"],
+      ["Permittivity, real", "ε′ = C′·d / (ε₀·A)", fmt(q.Epsilon_one_prime), "Epsilon_one_prime"],
+      ["Permittivity, imaginary", "ε″ = G′·d / (ε₀·ω·A)", fmt(q.Epsilon_two_prime), "Epsilon_two_prime"],
+      ["Loss tangent", "tan δ = ε″ / ε′", fmt(q.Tan_delta), "Tan_delta"],
+      ["Conductivity, real", "σ′ = Re(10·d / (A·Z*))", fmt(q.Sigma_one_prime) + " S/cm", "Sigma_one_prime"],
+      ["Conductivity, imaginary", "σ″ = Im(10·d / (A·Z*))", fmt(q.Sigma_two_prime) + " S/cm", "Sigma_two_prime"]
+    ];
+    rows.forEach(function (r) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, r[0])); tr.appendChild(el("td", "f", r[1])); tr.appendChild(el("td", "v", r[2])); tr.appendChild(el("td", "k", r[3]));
+      out.appendChild(tr);
+    });
+  }
+  pick.addEventListener("change", fillFromPick);
+  ["cR", "cX", "cF", "cD", "cA"].forEach(function (id) { $(id).addEventListener("input", calc); });
+  fillFromPick();
+
+  /* ---------------- Level 7: layers ---------------- */
+  var LAYERS = [
+    { n: "Questions", f: "UserInput.py", job: "Shows questions in the console and checks the answers.", more: ["There are six question types: yes or no, a list of options, a number with limits, free text, two indices and a list of indices.", "All other files ask the operator through this file. Because of this, it is the start point for a graphic interface."] },
+    { n: "Main program", f: "MeasurementProgram.py", job: "Shows the main menu and starts each phase.", more: ["It asks for the operator name, the room and the working directory.", "It starts a new measurement or opens a .JUMP file for processing."] },
+    { n: "Tasks", f: "MeasurementComponents.py", job: "Contains ParameterController, DataAcquisition and Trigger.", more: ["Each task is a separate thread. A parent task sets a flag on a sub-task and waits until the sub-task clears the flag.", "The class Measurement keeps the task list. It also calculates the possible positions for a new task in the tree."] },
+    { n: "Measurement setup", f: "MeasurementSetups.py", job: "Describes the physical equipment, for example a cryostat.", more: ["It knows the setpoint limits, the PID values for each temperature range and which sensor touches the sample.", "Available setups: Generic (1 to 5 instruments), GLaDOS (cold head), Quatro and DUMMY (template)."] },
+    { n: "Instruments", f: "MeasurementHardware.py", job: "Contains one class for each instrument type.", more: ["Each class changes controllables and measurables into instrument commands. For example, expected_freq = 1000 becomes GFR=1000 on the ALPHA.", "MeasurementDeviceController hides the instrument type from the layers above it."] },
+    { n: "Bus", f: "PyVISA + NI-VISA", job: "Sends the text commands on GPIB or USB.", more: ["JUMP does not contain this layer. It uses the PyVISA library and the National Instruments driver."] },
+    { n: "Database", f: "DataStorage.py", side: true, job: "Keeps all measured points in memory.", more: ["The database is a tree with the same identifiers as the task list.", "It contains the calculations, the merge and integrate operations and the file export. It saves itself with pickle."] }
+  ];
+  var layerBtns = [];
+  LAYERS.forEach(function (L, i) {
+    if (i > 0 && !L.side) $("layers").appendChild(el("div", "down", "↓"));
+    if (L.side) $("layers").appendChild(el("div", "down", "used by all layers above"));
+    var b = el("button", "layer" + (L.side ? " side" : "")); b.type = "button"; b.setAttribute("aria-pressed", "false");
+    b.appendChild(el("span", "nm", L.n)); b.appendChild(el("span", "fl", L.f));
+    b.addEventListener("click", function () { showLayer(i); });
+    $("layers").appendChild(b); layerBtns.push(b);
+  });
+  function showLayer(i) {
+    var L = LAYERS[i];
+    layerBtns.forEach(function (b, j) { b.setAttribute("aria-pressed", String(i === j)); });
+    var d = $("layerDetail"); d.textContent = "";
+    d.appendChild(el("span", "eyebrow", L.f));
+    d.appendChild(el("h3", null, L.n));
+    d.appendChild(el("p", null, L.job));
+    L.more.forEach(function (m) { d.appendChild(el("p", "note", m)); });
+  }
+  showLayer(3);
+})();
+</script>
+</body>
+</html>

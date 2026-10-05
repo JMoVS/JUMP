@@ -1,3 +1,7 @@
+> ### 👉 New to JUMP? Start with the interactive explainer: **[Inside JUMP](https://jmovs.github.io/JUMP/)**
+> Eight levels, from "what does it do" to the code structure, with a task-list simulator, a data-processing demo and a dielectric calculator. Written in ASD-STE100 Simplified Technical English.
+> Source: [`docs/index.html`](docs/index.html) · [Open without GitHub Pages](https://htmlpreview.github.io/?https://github.com/JMoVS/JUMP/blob/master/docs/index.html)
+
 For a better reading experience, consider reading the pdf. This measurement program is meant to be super-flexible, work with all your devices and generally help you with measuring. Because the way you record your data shouldn't be a problem, it's just a tool. How to build your appliances and interpret the data, that's where true value is added.
 
 If you have feedback, ideas or questions, please feel free to contact me via email git@justinscholz.de or Twitter (@JMoVS).

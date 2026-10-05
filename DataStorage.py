@@ -136,7 +136,7 @@ class Database:
         
         question = {"question_title": "Choose template",
                     "question_text": "Please choose a template",
-                    "default_answer": "Custom",
+                    "default_answer": 0,
                     "optiontype": "multi_choice",
                     "valid_options": ["Custom","S001"]}
         

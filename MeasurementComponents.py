@@ -1072,6 +1072,10 @@ class Helper:
                 values.append(math.pow(10, start_log + current_step * log_step))
         elif distribution == "linear":
             if amount_of_values:  # we have a specified amount of values, not a specified interval
+                # The usual routine asking for numbers returns a float, but range() needs an int
+                amount_of_values = int(amount_of_values)
+                if amount_of_values == 1:
+                    return [start_value]
                 # We subtract 1 at amount of values as the upper value has to be included
                 step_interval = (end_value - start_value) / (amount_of_values - 1)
                 for current_step in range(amount_of_values):
@@ -1083,16 +1087,18 @@ class Helper:
                     temporary_value = start_value
                     start_value = end_value
                     end_value = temporary_value
-                for value in range(start_value, end_value, step_interval):
+                # range() only works with ints, but the user enters floats. So we count steps instead and calculate
+                # each value from the start value to not accumulate rounding errors.
+                current_step = 0
+                value = start_value
+                while value < end_value:
                     values.append(value)
+                    current_step += 1
+                    value = start_value + current_step * step_interval
                 # we have to make sure that if appropriate the end temperature is included as well as well as a smaller
                 # last step:
-                if not values[len(values) - 1] == end_value:
-                    sweep_target_temperature = values[len(values) - 1] + step_interval
-                    if sweep_target_temperature == end_value:
-                        values.append(sweep_target_temperature)
-                    else:
-                        values.append(end_value)
+                if not values or values[-1] != end_value:
+                    values.append(end_value)
                 if end_value_is_smaller_than_start_value:
                     values_old = values
                     values = []
